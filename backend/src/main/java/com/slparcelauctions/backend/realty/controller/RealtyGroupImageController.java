@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.realty.controller;
 
-import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -10,33 +9,29 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.image.ImageVariant;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.dto.RealtyGroupDtoMapper;
 import com.slparcelauctions.backend.realty.dto.RealtyGroupPublicDto;
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
-import com.slparcelauctions.backend.realty.exception.RealtyGroupImageNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
-import com.slparcelauctions.backend.storage.ImagePurpose;
-import com.slparcelauctions.backend.storage.ImageStorageContext;
-import com.slparcelauctions.backend.storage.ImageStorageService;
-import com.slparcelauctions.backend.storage.ObjectStorageService;
-import com.slparcelauctions.backend.storage.StoredImage;
+import com.slparcelauctions.backend.realty.service.RealtyGroupImageService;
 import com.slparcelauctions.backend.storage.StoredObject;
-import com.slparcelauctions.backend.storage.exception.ObjectNotFoundException;
 import com.slparcelauctions.backend.user.Role;
-import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,19 +40,27 @@ import lombok.extern.slf4j.Slf4j;
  * Realty-group image surface: multipart logo + cover uploads (gated by
  * {@link RealtyGroupPermission#EDIT_GROUP_PROFILE}) and public byte-serving GETs.
  *
- * <p>Lives as a sibling of {@link RealtyGroupController} so the upload flow's binary
- * handling and S3 wiring don't crowd the JSON CRUD surface. The POST endpoints route
- * through the central {@link ImageStorageService} chokepoint — every byte that touches
+ * <p>Variant-aware as of plan Task 2: every surface ({@code cover}, {@code logo})
+ * accepts a {@code {variant}} path param on POST/DELETE and a {@code ?variant=}
+ * query param on GET. The variant token is one of {@code light} or {@code dark}
+ * (case-insensitive); anything else surfaces as
+ * {@code 400 INVALID_VARIANT} via {@link com.slparcelauctions.backend.common.image.InvalidVariantException}.
+ *
+ * <p>Lives as a sibling of {@code RealtyGroupController} so the upload flow's binary
+ * handling and S3 wiring don't crowd the JSON CRUD surface. The POST/DELETE
+ * endpoints route through the central {@link com.slparcelauctions.backend.storage.ImageStorageService}
+ * chokepoint inside {@link RealtyGroupImageService} — every byte that touches
  * S3 is sniffed, decoded, resized, and re-encoded to WebP first. The GET endpoints are
  * {@code permitAll} at the security config layer (CLAUDE.md SSR caveat: {@code <img src>}
  * cannot carry the JWT) and serve the underlying S3 object via the
- * {@link ObjectStorageService}.
+ * {@link com.slparcelauctions.backend.storage.ObjectStorageService}.
  *
- * <p>Object keys use {@code realty-groups/{publicId}/logo} and {@code .../cover} with no
- * extension — {@link ImageStorageService} appends {@code .webp} on write. Replacement
- * uploads overwrite the same key (idempotent S3 PUT). The cached {@code logoObjectKey} /
- * {@code coverObjectKey} column on the entity holds the final {@code .webp}-suffixed key,
- * so the GET path looks up the object by that exact column value.
+ * <p>Object keys use {@code realty-groups/{publicId}/logo-{variant}} and
+ * {@code .../cover-{variant}} with no extension — {@code ImageStorageService}
+ * appends {@code .webp} on write. Replacement uploads overwrite the same key
+ * (idempotent S3 PUT). The cached {@code (logo|cover)(Light|Dark)ObjectKey} columns
+ * on the entity hold the final {@code .webp}-suffixed key, so the GET path looks up
+ * the object by that exact column value for the requested variant.
  */
 @RestController
 @RequestMapping("/api/v1/realty-groups")
@@ -68,112 +71,98 @@ public class RealtyGroupImageController {
     private final RealtyGroupRepository groups;
     private final RealtyGroupAuthorizer authorizer;
     private final RealtyGroupDtoMapper mapper;
-    private final ImageStorageService imageStorage;
-    private final ObjectStorageService objectStorage;
+    private final RealtyGroupImageService imageService;
 
-    // ─────────────────────── uploads ───────────────────────
+    // ─────────────────────── LOGO uploads + delete ───────────────────────
 
-    @PostMapping(path = "/{publicId}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(path = "/{publicId}/logo/{variant}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
     public RealtyGroupPublicDto uploadLogo(
             @PathVariable UUID publicId,
+            @PathVariable String variant,
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestPart("file") MultipartFile file) {
-        return uploadImage(publicId, principal, file, ImagePurpose.LOGO);
+        ImageVariant v = ImageVariant.parse(variant);
+        authorize(publicId, principal);
+        RealtyGroup updated = imageService.uploadLogo(publicId, v, file);
+        return mapper.toPublicDto(updated, principal.userId(), principal.role() == Role.ADMIN);
     }
 
-    @PostMapping(path = "/{publicId}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @DeleteMapping("/{publicId}/logo/{variant}")
+    @Transactional
+    public RealtyGroupPublicDto deleteLogo(
+            @PathVariable UUID publicId,
+            @PathVariable String variant,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        ImageVariant v = ImageVariant.parse(variant);
+        authorize(publicId, principal);
+        RealtyGroup updated = imageService.deleteLogo(publicId, v);
+        return mapper.toPublicDto(updated, principal.userId(), principal.role() == Role.ADMIN);
+    }
+
+    // ─────────────────────── COVER uploads + delete ───────────────────────
+
+    @PostMapping(path = "/{publicId}/cover/{variant}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
     public RealtyGroupPublicDto uploadCover(
             @PathVariable UUID publicId,
+            @PathVariable String variant,
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestPart("file") MultipartFile file) {
-        return uploadImage(publicId, principal, file, ImagePurpose.COVER);
+        ImageVariant v = ImageVariant.parse(variant);
+        authorize(publicId, principal);
+        RealtyGroup updated = imageService.uploadCover(publicId, v, file);
+        return mapper.toPublicDto(updated, principal.userId(), principal.role() == Role.ADMIN);
     }
 
-    private RealtyGroupPublicDto uploadImage(
-            UUID publicId, AuthPrincipal principal, MultipartFile file, ImagePurpose purpose) {
-        RealtyGroup group = loadActive(publicId);
-        authorizer.assertCan(principal.userId(), group.getId(), RealtyGroupPermission.EDIT_GROUP_PROFILE);
-
-        String suffix = purpose == ImagePurpose.LOGO ? "logo" : "cover";
-        // Stable per-group key — re-uploads overwrite the same WebP object. No
-        // collision risk because the publicId + suffix is unique per group.
-        String keyWithoutExt = "realty-groups/" + group.getPublicId() + "/" + suffix;
-
-        StoredImage stored;
-        try {
-            stored = imageStorage.storeImage(
-                    file.getInputStream(),
-                    new ImageStorageContext(purpose, keyWithoutExt));
-        } catch (IOException e) {
-            throw new UnsupportedImageFormatException("Failed to read upload: " + e.getMessage(), e);
-        }
-
-        if (purpose == ImagePurpose.LOGO) {
-            group.setLogoLightObjectKey(stored.objectKey());
-            group.setLogoLightContentType(stored.contentType());
-            group.setLogoLightSizeBytes(stored.sizeBytes());
-        } else {
-            group.setCoverLightObjectKey(stored.objectKey());
-            group.setCoverLightContentType(stored.contentType());
-            group.setCoverLightSizeBytes(stored.sizeBytes());
-        }
-        // JPA dirty checking flushes setters on transaction commit.
-        log.info("Realty group {} {} image updated by user {}: key={} ({} bytes)",
-                group.getPublicId(), suffix, principal.userId(),
-                stored.objectKey(), stored.sizeBytes());
-        return mapper.toPublicDto(
-                group, principal.userId(), principal.role() == Role.ADMIN);
+    @DeleteMapping("/{publicId}/cover/{variant}")
+    @Transactional
+    public RealtyGroupPublicDto deleteCover(
+            @PathVariable UUID publicId,
+            @PathVariable String variant,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        ImageVariant v = ImageVariant.parse(variant);
+        authorize(publicId, principal);
+        RealtyGroup updated = imageService.deleteCover(publicId, v);
+        return mapper.toPublicDto(updated, principal.userId(), principal.role() == Role.ADMIN);
     }
 
     // ─────────────────────── byte serving ───────────────────────
 
     @GetMapping("/{publicId}/logo/image")
-    @Transactional(readOnly = true)
-    public ResponseEntity<byte[]> getLogoImage(@PathVariable UUID publicId) {
-        return serveImage(publicId, RealtyGroupImageNotFoundException.Kind.LOGO);
+    public ResponseEntity<byte[]> getLogoImage(
+            @PathVariable UUID publicId,
+            @RequestParam("variant") String variant) {
+        ImageVariant v = ImageVariant.parse(variant);
+        StoredObject obj = imageService.fetchLogoBytes(publicId, v);
+        return serve(obj);
     }
 
     @GetMapping("/{publicId}/cover/image")
-    @Transactional(readOnly = true)
-    public ResponseEntity<byte[]> getCoverImage(@PathVariable UUID publicId) {
-        return serveImage(publicId, RealtyGroupImageNotFoundException.Kind.COVER);
-    }
-
-    private ResponseEntity<byte[]> serveImage(UUID publicId, RealtyGroupImageNotFoundException.Kind kind) {
-        RealtyGroup group = loadActive(publicId);
-        String key = kind == RealtyGroupImageNotFoundException.Kind.LOGO
-                ? group.getLogoLightObjectKey()
-                : group.getCoverLightObjectKey();
-        if (key == null) {
-            throw new RealtyGroupImageNotFoundException(group.getPublicId(), kind);
-        }
-        StoredObject obj;
-        try {
-            obj = objectStorage.get(key);
-        } catch (ObjectNotFoundException e) {
-            // Column points at a key S3 doesn't have — treat as image-not-set to the
-            // caller (a 5xx would be misleading; the client can't fix it either way).
-            log.warn("Realty group {} {} object missing in storage (key={})",
-                    publicId, kind.name().toLowerCase(), key);
-            throw new RealtyGroupImageNotFoundException(group.getPublicId(), kind);
-        }
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(obj.contentLength()))
-                .cacheControl(CacheControl.maxAge(300, TimeUnit.SECONDS).cachePublic())
-                .body(obj.bytes());
+    public ResponseEntity<byte[]> getCoverImage(
+            @PathVariable UUID publicId,
+            @RequestParam("variant") String variant) {
+        ImageVariant v = ImageVariant.parse(variant);
+        StoredObject obj = imageService.fetchCoverBytes(publicId, v);
+        return serve(obj);
     }
 
     // ─────────────────────── helpers ───────────────────────
 
-    private RealtyGroup loadActive(UUID publicId) {
+    private void authorize(UUID publicId, AuthPrincipal principal) {
         RealtyGroup group = groups.findByPublicId(publicId)
                 .orElseThrow(() -> new RealtyGroupNotFoundException(publicId));
         if (group.isDissolved()) {
             throw new GroupDissolvedException(group.getPublicId());
         }
-        return group;
+        authorizer.assertCan(principal.userId(), group.getId(), RealtyGroupPermission.EDIT_GROUP_PROFILE);
+    }
+
+    private static ResponseEntity<byte[]> serve(StoredObject obj) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(obj.contentLength()))
+                .cacheControl(CacheControl.maxAge(300, TimeUnit.SECONDS).cachePublic())
+                .body(obj.bytes());
     }
 }

@@ -89,8 +89,10 @@ public class RealtyGroupDtoMapper {
             group.getSlug(),
             group.getDescription(),
             group.getWebsite(),
-            logoUrlFor(group),
-            coverUrlFor(group),
+            logoUrlFor(group, "light"),
+            logoUrlFor(group, "dark"),
+            coverUrlFor(group, "light"),
+            coverUrlFor(group, "dark"),
             group.getCreatedAt(),
             leader,
             agentCards,
@@ -144,7 +146,8 @@ public class RealtyGroupDtoMapper {
             group.getPublicId(),
             group.getName(),
             group.getSlug(),
-            logoUrlFor(group),
+            logoUrlFor(group, "light"),
+            logoUrlFor(group, "dark"),
             (int) memberCount,
             group.getCreatedAt());
     }
@@ -157,7 +160,8 @@ public class RealtyGroupDtoMapper {
             group.getPublicId(),
             group.getName(),
             group.getSlug(),
-            logoUrlFor(group),
+            logoUrlFor(group, "light"),
+            logoUrlFor(group, "dark"),
             role);
     }
 
@@ -266,16 +270,21 @@ public class RealtyGroupDtoMapper {
         return u == null ? null : UserAvatarUrl.forUserOrNull(u.getPublicId());
     }
 
-    // Plan Task 1: still keyed off the LIGHT slot only; URL stays variant-free.
-    // Plan Task 2 swaps these to per-variant URLs once the dark surface ships.
-    private static String logoUrlFor(RealtyGroup g) {
-        if (g.getLogoLightObjectKey() == null) return null;
-        return "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
+    // Variant-aware URLs (plan Task 2): each per-(surface, variant) slot is
+    // keyed off the matching {@code *ObjectKey} column. The URL appends the
+    // ?variant= query param; the frontend's ThemedImage helper picks the
+    // variant matching the active theme and falls back to its sibling slot
+    // when the matched URL is null. Pass "light" or "dark" exactly.
+    private static String logoUrlFor(RealtyGroup g, String variant) {
+        String key = "light".equals(variant) ? g.getLogoLightObjectKey() : g.getLogoDarkObjectKey();
+        if (key == null) return null;
+        return "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=" + variant;
     }
 
-    private static String coverUrlFor(RealtyGroup g) {
-        if (g.getCoverLightObjectKey() == null) return null;
-        return "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image";
+    private static String coverUrlFor(RealtyGroup g, String variant) {
+        String key = "light".equals(variant) ? g.getCoverLightObjectKey() : g.getCoverDarkObjectKey();
+        if (key == null) return null;
+        return "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=" + variant;
     }
 
     /** Resolve a {@link UUID} that may or may not be present — kept for upcoming admin DTO. */

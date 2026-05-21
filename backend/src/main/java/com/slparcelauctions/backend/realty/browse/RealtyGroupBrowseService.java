@@ -105,8 +105,10 @@ public class RealtyGroupBrowseService {
             p.getName(),
             p.getSlug(),
             tagline(p.getDescription()),
-            logoUrlFor(p),
-            coverUrlFor(p),
+            urlFor(p.getPublicId(), "logo", "light", p.getLogoLightObjectKey()),
+            urlFor(p.getPublicId(), "logo", "dark", p.getLogoDarkObjectKey()),
+            urlFor(p.getPublicId(), "cover", "light", p.getCoverLightObjectKey()),
+            urlFor(p.getPublicId(), "cover", "dark", p.getCoverDarkObjectKey()),
             p.getCreatedAt() == null ? null : p.getCreatedAt().atOffset(ZoneOffset.UTC),
             p.getMemberCount(),
             p.getMemberSeatLimit(),
@@ -121,15 +123,11 @@ public class RealtyGroupBrowseService {
         return description.substring(0, TAGLINE_MAX_CHARS) + "...";
     }
 
-    // Plan Task 1: keyed off the LIGHT slot; URL stays variant-free. Plan
-    // Task 2 swaps to per-variant URLs once the dark surface ships.
-    private static String logoUrlFor(RealtyGroupCardProjection p) {
-        if (p.getLogoLightObjectKey() == null) return null;
-        return "/api/v1/realty-groups/" + p.getPublicId() + "/logo/image";
-    }
-
-    private static String coverUrlFor(RealtyGroupCardProjection p) {
-        if (p.getCoverLightObjectKey() == null) return null;
-        return "/api/v1/realty-groups/" + p.getPublicId() + "/cover/image";
+    // Variant-aware URL builder (plan Task 2). Returns null when the slot's
+    // object key is null so the frontend's ThemedImage helper can fall back
+    // to the sibling variant.
+    private static String urlFor(java.util.UUID publicId, String surface, String variant, String objectKey) {
+        if (objectKey == null) return null;
+        return "/api/v1/realty-groups/" + publicId + "/" + surface + "/image?variant=" + variant;
     }
 }

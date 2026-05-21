@@ -157,11 +157,17 @@ public class RealtyGroupListingService {
             BigDecimal commissionRate = members
                     .findCommissionRate(g.getId(), callerUserId)
                     .orElse(BigDecimal.ZERO);
-            String logoUrl = g.getLogoLightObjectKey() == null
+            // Variant-aware logo URLs (plan Task 2). Each slot is independent;
+            // either may be null when no upload exists for that variant.
+            String logoLightUrl = g.getLogoLightObjectKey() == null
                     ? null
-                    : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
+                    : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=light";
+            String logoDarkUrl = g.getLogoDarkObjectKey() == null
+                    ? null
+                    : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=dark";
             out.add(new ListingEligibleGroupDto(
-                    g.getPublicId(), g.getName(), g.getSlug(), logoUrl, commissionRate));
+                    g.getPublicId(), g.getName(), g.getSlug(),
+                    logoLightUrl, logoDarkUrl, commissionRate));
         }
         return out;
     }

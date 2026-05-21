@@ -1,8 +1,7 @@
 package com.slparcelauctions.backend.realty.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -49,6 +48,10 @@ import com.slparcelauctions.backend.user.UserRepository;
  * @AutoConfigureMockMvc + @ActiveProfiles("dev")}) and seeds fixtures through real
  * repositories.
  *
+ * <p>Plan Task 2: every endpoint is variant-aware. POST/DELETE take a {@code
+ * {variant}} path-param, GET takes a {@code ?variant=} query param; anything
+ * outside {@code light}/{@code dark} surfaces as {@code 400 INVALID_VARIANT}.
+ *
  * <p>{@link ObjectStorageService} is the only collaborator mocked — the real
  * {@code ImageStorageService} chokepoint runs end-to-end (sniff + decode + resize + WebP
  * encode) so the test exercises the production pipeline. The mock backs every {@code put}
@@ -81,9 +84,10 @@ class RealtyGroupImageControllerSliceTest {
 
     /**
      * Mocked S3-facing layer with a per-test in-memory backing map. {@code put} records
-     * the bytes; {@code get} replays them; {@code presignGet}/{@code exists}/{@code
-     * delete} use the default Mockito returns since the controller never calls them on
-     * the happy paths under test.
+     * the bytes; {@code get} replays them; {@code delete} removes the entry so DELETE
+     * happy-path tests observe a real eviction. {@code presignGet}/{@code exists} use
+     * the default Mockito returns since the controller never calls them on the happy
+     * paths under test.
      */
     @MockitoBean ObjectStorageService objectStorage;
 
@@ -98,7 +102,6 @@ class RealtyGroupImageControllerSliceTest {
 
     @BeforeEach
     void seed() {
-        // Mock storage backs put/get with an in-memory map per test.
         store.clear();
         org.mockito.Mockito.doAnswer(inv -> {
             String key = inv.getArgument(0);
@@ -117,6 +120,11 @@ class RealtyGroupImageControllerSliceTest {
             }
             return new StoredObject(bytes, "image/webp", bytes.length);
         }).when(objectStorage).get(org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.doAnswer(inv -> {
+            String key = inv.getArgument(0);
+            store.remove(key);
+            return null;
+        }).when(objectStorage).delete(org.mockito.ArgumentMatchers.anyString());
 
         leader = userRepository.save(User.builder()
             .username("img-l-" + UUID.randomUUID().toString().substring(0, 8))
@@ -139,46 +147,73 @@ class RealtyGroupImageControllerSliceTest {
             outsider.getId(), outsider.getPublicId(), outsider.getEmail(), 0L, Role.USER));
     }
 
-    // ─────────────────────── POST .../logo ───────────────────────
+    // ─────────────────────── POST .../logo/{variant} ───────────────────────
 
     @Test
-    void postLogo_leader_returns200_andPersistsObjectKey() throws Exception {
+    void postLogoLight_leader_returns200_andPersistsObjectKey() throws Exception {
         RealtyGroup g = createGroup(leader);
-        MockMultipartFile file = pngFile(16, 16);
 
-        MvcResult result = mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
-                .file(file)
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.publicId").value(g.getPublicId().toString()))
-            .andExpect(jsonPath("$.logoUrl").value(
-                "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image"))
-            .andReturn();
+            .andExpect(jsonPath("$.logoLightUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=light"))
+            .andExpect(jsonPath("$.logoDarkUrl").doesNotExist());
 
         RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
         assertThat(fresh.getLogoLightObjectKey())
-            .isEqualTo("realty-groups/" + g.getPublicId() + "/logo.webp");
+            .isEqualTo("realty-groups/" + g.getPublicId() + "/logo-light.webp");
         assertThat(fresh.getLogoLightContentType()).isEqualTo("image/webp");
         assertThat(fresh.getLogoLightSizeBytes()).isGreaterThan(0L);
-        // The chokepoint actually encoded WebP into the mocked storage layer.
+        assertThat(fresh.getLogoDarkObjectKey()).isNull();
         assertThat(store).containsKey(fresh.getLogoLightObjectKey());
+    }
+
+    @Test
+    void postLogoDark_leader_returns200_andPersistsObjectKey() throws Exception {
+        RealtyGroup g = createGroup(leader);
+
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/dark")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.logoDarkUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=dark"))
+            .andExpect(jsonPath("$.logoLightUrl").doesNotExist());
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getLogoDarkObjectKey())
+            .isEqualTo("realty-groups/" + g.getPublicId() + "/logo-dark.webp");
+        assertThat(fresh.getLogoLightObjectKey()).isNull();
+    }
+
+    @Test
+    void postLogo_invalidVariant_returns400() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/sepia")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_VARIANT"))
+            .andExpect(jsonPath("$.value").value("sepia"));
     }
 
     @Test
     void postLogo_unauthenticated_returns401() throws Exception {
         RealtyGroup g = createGroup(leader);
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
                 .file(pngFile(16, 16)))
             .andExpect(status().isUnauthorized());
     }
 
     @Test
     void postLogo_memberWithoutEditPermission_returns403() throws Exception {
-        // Agent is a member, but EDIT_GROUP_PROFILE is not in their permission set.
         RealtyGroup g = createGroup(leader);
         addMember(g, agent);
 
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + agentJwt))
             .andExpect(status().isForbidden())
@@ -188,7 +223,7 @@ class RealtyGroupImageControllerSliceTest {
     @Test
     void postLogo_outsider_returns403() throws Exception {
         RealtyGroup g = createGroup(leader);
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + outsiderJwt))
             .andExpect(status().isForbidden());
@@ -196,7 +231,7 @@ class RealtyGroupImageControllerSliceTest {
 
     @Test
     void postLogo_unknownGroup_returns404() throws Exception {
-        mvc.perform(multipart("/api/v1/realty-groups/" + UUID.randomUUID() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + UUID.randomUUID() + "/logo/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isNotFound())
@@ -209,7 +244,7 @@ class RealtyGroupImageControllerSliceTest {
         g.setDissolvedAt(OffsetDateTime.now());
         groupRepository.save(g);
 
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isGone())
@@ -223,59 +258,191 @@ class RealtyGroupImageControllerSliceTest {
             "file", "x.txt", "text/plain",
             "hello-this-is-not-an-image-payload".getBytes());
 
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
                 .file(text)
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isUnsupportedMediaType())
             .andExpect(jsonPath("$.code").value("UNSUPPORTED_IMAGE_FORMAT"));
     }
 
-    // ─────────────────────── POST .../cover ───────────────────────
+    // ─────────────────────── POST .../cover/{variant} ───────────────────────
 
     @Test
-    void postCover_leader_returns200_andPersistsObjectKey() throws Exception {
+    void postCoverLight_leader_returns200_andPersistsObjectKey() throws Exception {
         RealtyGroup g = createGroup(leader);
 
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
                 .file(pngFile(32, 32))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.coverUrl").value(
-                "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image"));
+            .andExpect(jsonPath("$.coverLightUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=light"))
+            .andExpect(jsonPath("$.coverDarkUrl").doesNotExist());
 
         RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
         assertThat(fresh.getCoverLightObjectKey())
-            .isEqualTo("realty-groups/" + g.getPublicId() + "/cover.webp");
+            .isEqualTo("realty-groups/" + g.getPublicId() + "/cover-light.webp");
         assertThat(fresh.getCoverLightContentType()).isEqualTo("image/webp");
         assertThat(fresh.getCoverLightSizeBytes()).isGreaterThan(0L);
     }
 
     @Test
+    void postCoverDark_leader_returns200_andPersistsObjectKey() throws Exception {
+        RealtyGroup g = createGroup(leader);
+
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/dark")
+                .file(pngFile(32, 32))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.coverDarkUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=dark"));
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getCoverDarkObjectKey())
+            .isEqualTo("realty-groups/" + g.getPublicId() + "/cover-dark.webp");
+    }
+
+    @Test
     void postCover_memberWithEditPermission_returns200() throws Exception {
-        // Delegating EDIT_GROUP_PROFILE to a non-leader member must let them upload.
         RealtyGroup g = createGroup(leader);
         RealtyGroupMember row = addMember(g, agent);
         row.setPermissionSet(java.util.EnumSet.of(RealtyGroupPermission.EDIT_GROUP_PROFILE));
         memberRepository.save(row);
 
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + agentJwt))
             .andExpect(status().isOk());
     }
 
-    // ─────────────────────── GET .../logo/image ───────────────────────
+    // ─────────────────────── DELETE .../logo/{variant} ───────────────────────
 
     @Test
-    void getLogoImage_afterUpload_returns200_andBytes() throws Exception {
+    void deleteLogoLight_leavesDarkPopulated() throws Exception {
         RealtyGroup g = createGroup(leader);
-        // POST first so the byte path has something to fetch from the in-memory store.
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo")
+        // Upload both variants first.
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/dark")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isOk());
 
-        MvcResult result = mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image"))
+        mvc.perform(delete("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.logoLightUrl").doesNotExist())
+            .andExpect(jsonPath("$.logoDarkUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=dark"));
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getLogoLightObjectKey()).isNull();
+        assertThat(fresh.getLogoLightContentType()).isNull();
+        assertThat(fresh.getLogoLightSizeBytes()).isNull();
+        assertThat(fresh.getLogoDarkObjectKey()).isNotNull();
+    }
+
+    @Test
+    void deleteLogoDark_leavesLightPopulated() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/dark")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/realty-groups/" + g.getPublicId() + "/logo/dark")
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.logoLightUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=light"))
+            .andExpect(jsonPath("$.logoDarkUrl").doesNotExist());
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getLogoLightObjectKey()).isNotNull();
+        assertThat(fresh.getLogoDarkObjectKey()).isNull();
+    }
+
+    // ─────────────────────── DELETE .../cover/{variant} ───────────────────────
+
+    @Test
+    void deleteCoverLight_leavesDarkPopulated() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/dark")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.coverLightUrl").doesNotExist())
+            .andExpect(jsonPath("$.coverDarkUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=dark"));
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getCoverLightObjectKey()).isNull();
+        assertThat(fresh.getCoverDarkObjectKey()).isNotNull();
+    }
+
+    @Test
+    void deleteCoverDark_leavesLightPopulated() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/dark")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/realty-groups/" + g.getPublicId() + "/cover/dark")
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.coverLightUrl").value(
+                "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=light"))
+            .andExpect(jsonPath("$.coverDarkUrl").doesNotExist());
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getCoverLightObjectKey()).isNotNull();
+        assertThat(fresh.getCoverDarkObjectKey()).isNull();
+    }
+
+    @Test
+    void deleteCover_unsetVariant_isIdempotent() throws Exception {
+        // Deleting a variant that was never uploaded returns 200 with cleared columns
+        // (no exception from the best-effort storage delete on a null key).
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(delete("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
+        assertThat(fresh.getCoverLightObjectKey()).isNull();
+    }
+
+    // ─────────────────────── GET .../logo/image?variant= ───────────────────────
+
+    @Test
+    void getLogoImageLight_afterUpload_returns200_andBytes() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        MvcResult result = mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image")
+                .param("variant", "light"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Type", "image/webp"))
             .andExpect(header().string("Cache-Control", "max-age=300, public"))
@@ -288,12 +455,36 @@ class RealtyGroupImageControllerSliceTest {
     }
 
     @Test
-    void getLogoImage_notSet_returns404() throws Exception {
+    void getLogoImageDark_notSet_returns404() throws Exception {
         RealtyGroup g = createGroup(leader);
-        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image"))
+        // Only light uploaded; dark slot empty.
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/logo/light")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image")
+                .param("variant", "dark"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("REALTY_GROUP_IMAGE_NOT_FOUND"))
             .andExpect(jsonPath("$.kind").value("LOGO"));
+    }
+
+    @Test
+    void getLogoImage_invalidVariant_returns400() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image")
+                .param("variant", "sepia"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_VARIANT"))
+            .andExpect(jsonPath("$.value").value("sepia"));
+    }
+
+    @Test
+    void getLogoImage_missingVariant_returns400() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -302,23 +493,50 @@ class RealtyGroupImageControllerSliceTest {
         g.setDissolvedAt(OffsetDateTime.now());
         groupRepository.save(g);
 
-        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image"))
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/logo/image")
+                .param("variant", "light"))
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("GROUP_DISSOLVED"));
     }
 
+    // ─────────────────────── GET .../cover/image?variant= ───────────────────────
+
     @Test
-    void getCoverImage_afterUpload_returns200_andBytes() throws Exception {
+    void getCoverImageLight_afterUpload_returns200_andBytes() throws Exception {
         RealtyGroup g = createGroup(leader);
-        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover")
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/light")
                 .file(pngFile(16, 16))
                 .header("Authorization", "Bearer " + leaderJwt))
             .andExpect(status().isOk());
 
-        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/cover/image"))
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/cover/image")
+                .param("variant", "light"))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Type", "image/webp"))
             .andExpect(header().string("Cache-Control", "max-age=300, public"));
+    }
+
+    @Test
+    void getCoverImageDark_afterUpload_returns200_andBytes() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(multipart("/api/v1/realty-groups/" + g.getPublicId() + "/cover/dark")
+                .file(pngFile(16, 16))
+                .header("Authorization", "Bearer " + leaderJwt))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/cover/image")
+                .param("variant", "dark"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Type", "image/webp"));
+    }
+
+    @Test
+    void getCoverImage_invalidVariant_returns400() throws Exception {
+        RealtyGroup g = createGroup(leader);
+        mvc.perform(get("/api/v1/realty-groups/" + g.getPublicId() + "/cover/image")
+                .param("variant", "neon"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_VARIANT"));
     }
 
     // ─────────────────────── helpers ───────────────────────
@@ -347,8 +565,7 @@ class RealtyGroupImageControllerSliceTest {
     /**
      * Generates a small in-memory PNG. {@code size}x{@code size} pixels, opaque red.
      * Used as the upload payload — the chokepoint decodes it via ImageIO and re-encodes
-     * to WebP, exercising the real pipeline. ARGB so the encoder picks the lossless
-     * path with alpha, but that's fine for these tests.
+     * to WebP, exercising the real pipeline.
      */
     private static MockMultipartFile pngFile(int w, int h) throws Exception {
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
@@ -358,11 +575,5 @@ class RealtyGroupImageControllerSliceTest {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(img, "png", baos);
         return new MockMultipartFile("file", "x.png", "image/png", baos.toByteArray());
-    }
-
-    /** Suppresses unused-warning for {@code eq} import; kept for future negative tests. */
-    @SuppressWarnings("unused")
-    private static void touchUnused() {
-        eq("noop");
     }
 }
