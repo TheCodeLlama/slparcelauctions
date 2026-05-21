@@ -11,6 +11,7 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.support.dto.AdminReplyRequest;
 import com.slparcelauctions.backend.support.dto.CreateSupportTicketRequest;
 import com.slparcelauctions.backend.support.dto.ReplySupportTicketRequest;
+import com.slparcelauctions.backend.support.dto.SupportTicketQueueStatsDto;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -141,6 +142,123 @@ public class SupportTicketService {
     public SupportTicket findByPublicId(UUID publicId) {
         return ticketRepo.findByPublicId(publicId)
                 .orElseThrow(() -> new SupportTicketException(SupportTicketError.UNKNOWN_TICKET));
+    }
+
+    /**
+     * Flip a ticket to {@link SupportTicketStatus#RESOLVED}, writing a
+     * synthetic admin-authored system message ("Marked resolved by admin")
+     * so the resolution shows in the thread, and firing the
+     * {@code supportTicketResolved} notification to the submitter.
+     * Idempotent: a no-op when already resolved.
+     */
+    public SupportTicket resolve(long adminUserId, UUID ticketPublicId) {
+        SupportTicket ticket = ticketRepo.findByPublicId(ticketPublicId)
+                .orElseThrow(() -> new SupportTicketException(SupportTicketError.UNKNOWN_TICKET));
+        if (ticket.getStatus() == SupportTicketStatus.RESOLVED) return ticket;
+
+        OffsetDateTime now = OffsetDateTime.now();
+        User admin = userRepo.findById(adminUserId).orElseThrow(() ->
+                new SupportTicketException(SupportTicketError.UNKNOWN_TICKET, "admin missing"));
+        ticket.setStatus(SupportTicketStatus.RESOLVED);
+        ticket.setResolvedAt(now);
+
+        SupportTicketMessage system = SupportTicketMessage.builder()
+                .ticket(ticket).authorUser(admin)
+                .authorRole(SupportTicketAuthorRole.ADMIN)
+                .body("Marked resolved by admin")
+                .visibleToUser(true)
+                .build();
+        messageRepo.save(system);
+        ticket.setLastMessageAt(now);
+        ticket.setLastMessageAuthor(SupportTicketAuthorRole.ADMIN);
+
+        User submitter = ticket.getUser();
+        notifications.supportTicketResolved(submitter.getId(), ticket.getPublicId(), ticket.getSubject());
+        return ticket;
+    }
+
+    /**
+     * Flip a ticket back to {@link SupportTicketStatus#OPEN}, writing a
+     * synthetic admin-authored system message ("Reopened by admin") so the
+     * reopen shows in the thread. No notification is fired (the submitter
+     * does not get spammed when an admin reopens for internal follow-up).
+     * Idempotent: a no-op when already open.
+     */
+    public SupportTicket reopen(long adminUserId, UUID ticketPublicId) {
+        SupportTicket ticket = ticketRepo.findByPublicId(ticketPublicId)
+                .orElseThrow(() -> new SupportTicketException(SupportTicketError.UNKNOWN_TICKET));
+        if (ticket.getStatus() == SupportTicketStatus.OPEN) return ticket;
+
+        OffsetDateTime now = OffsetDateTime.now();
+        User admin = userRepo.findById(adminUserId).orElseThrow(() ->
+                new SupportTicketException(SupportTicketError.UNKNOWN_TICKET, "admin missing"));
+        ticket.setStatus(SupportTicketStatus.OPEN);
+        ticket.setResolvedAt(null);
+
+        SupportTicketMessage system = SupportTicketMessage.builder()
+                .ticket(ticket).authorUser(admin)
+                .authorRole(SupportTicketAuthorRole.ADMIN)
+                .body("Reopened by admin")
+                .visibleToUser(true)
+                .build();
+        messageRepo.save(system);
+        ticket.setLastMessageAt(now);
+        ticket.setLastMessageAuthor(SupportTicketAuthorRole.ADMIN);
+        return ticket;
+    }
+
+    /**
+     * Assign / unassign the admin owner of a ticket. {@code adminPublicId}
+     * null clears the assignment; otherwise the target user must exist and
+     * carry the {@link Role#ADMIN} role. Non-admin targets surface as
+     * {@code UNKNOWN_TICKET} to avoid leaking role information through the
+     * admin assignment surface.
+     */
+    public SupportTicket assign(UUID ticketPublicId, UUID adminPublicId) {
+        SupportTicket ticket = ticketRepo.findByPublicId(ticketPublicId)
+                .orElseThrow(() -> new SupportTicketException(SupportTicketError.UNKNOWN_TICKET));
+        if (adminPublicId == null) {
+            ticket.setAssignedAdminId(null);
+            return ticket;
+        }
+        User admin = userRepo.findByPublicId(adminPublicId).orElseThrow(() ->
+                new SupportTicketException(SupportTicketError.UNKNOWN_TICKET, "admin missing"));
+        if (admin.getRole() != Role.ADMIN) {
+            throw new SupportTicketException(SupportTicketError.UNKNOWN_TICKET, "user is not an admin");
+        }
+        ticket.setAssignedAdminId(admin.getId());
+        return ticket;
+    }
+
+    /**
+     * Admin-only category re-tag. The original category was set at create
+     * time from a user-submitted form, so admins occasionally need to fix
+     * misclassifications without rewriting the thread.
+     */
+    public SupportTicket patchCategory(UUID ticketPublicId, SupportTicketCategory category) {
+        if (category == null) {
+            throw new SupportTicketException(SupportTicketError.INVALID_CATEGORY, "category required");
+        }
+        SupportTicket ticket = ticketRepo.findByPublicId(ticketPublicId)
+                .orElseThrow(() -> new SupportTicketException(SupportTicketError.UNKNOWN_TICKET));
+        ticket.setCategory(category);
+        return ticket;
+    }
+
+    /**
+     * Cheap aggregate counters for the admin queue header / sidebar badge.
+     * {@code openNeedingAdminReply} matches the "needs admin attention"
+     * filter ({@code status = OPEN AND lastMessageAuthor = USER}) so the
+     * badge and the filtered list never disagree.
+     */
+    @Transactional(readOnly = true)
+    public SupportTicketQueueStatsDto queueStats() {
+        long openNeedingAdminReply = ticketRepo.count((root, cq, cb) -> cb.and(
+                cb.equal(root.get("status"), SupportTicketStatus.OPEN),
+                cb.equal(root.get("lastMessageAuthor"), SupportTicketAuthorRole.USER)));
+        long openTotal = ticketRepo.count((root, cq, cb) ->
+                cb.equal(root.get("status"), SupportTicketStatus.OPEN));
+        return new SupportTicketQueueStatsDto(openNeedingAdminReply, openTotal);
     }
 
     private SupportTicketMessage appendMessage(SupportTicket ticket, User author,
