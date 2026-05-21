@@ -1209,6 +1209,137 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 title, bodyBuilder.toString(), data, /* coalesceKey */ null));
     }
 
+    // ── Customer support tickets ──────────────────────────────────────────
+    //
+    // Two posture-pairs:
+    //   * User-facing  (SUPPORT_TICKET_ADMIN_REPLIED, SUPPORT_TICKET_RESOLVED):
+    //     single recipient. Routes through NotificationService.publish so the
+    //     SL IM dispatcher fires after-commit. SYSTEM-group categorisation
+    //     means SlImChannelGate returns QUEUE_BYPASS_PREFS, so the IM lands
+    //     even for users who have muted other groups (admin response is too
+    //     important to silence). The no-avatar + global-mute floors still
+    //     apply.
+    //   * Admin-facing (SUPPORT_TICKET_OPENED, SUPPORT_TICKET_USER_REPLIED):
+    //     fan-out across the supplied admin user ids. Each recipient gets a
+    //     row + WS broadcast via the DAO + broadcaster directly. The SL IM
+    //     dispatcher is intentionally NOT invoked -- admins use the queue
+    //     page + sidebar badge, in-world IMs would be spam. Each recipient
+    //     runs in its own REQUIRES_NEW so a single bad admin id does not
+    //     block delivery to siblings, mirroring listingCancelledBySellerFanout.
+
+    @Override
+    public void supportTicketAdminReplied(long userId, UUID ticketPublicId,
+                                          String subject, String adminDisplayName) {
+        if (ticketPublicId == null) {
+            log.warn("supportTicketAdminReplied called with null ticketPublicId for userId={}", userId);
+            return;
+        }
+        String title = "Support reply on \"" + subject + "\"";
+        String body = adminDisplayName + " replied to your support ticket: " + subject
+            + ". View at slparcels.com/support/" + ticketPublicId;
+        Map<String, Object> data = NotificationDataBuilder.supportTicketAdminReplied(
+            ticketPublicId, subject, adminDisplayName);
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.SUPPORT_TICKET_ADMIN_REPLIED,
+            title, body, data, /* coalesceKey */ null));
+    }
+
+    @Override
+    public void supportTicketResolved(long userId, UUID ticketPublicId, String subject) {
+        if (ticketPublicId == null) {
+            log.warn("supportTicketResolved called with null ticketPublicId for userId={}", userId);
+            return;
+        }
+        String title = "Support ticket resolved: " + subject;
+        String body = "Your support ticket has been marked resolved: " + subject
+            + ". View at slparcels.com/support/" + ticketPublicId;
+        Map<String, Object> data = NotificationDataBuilder.supportTicketResolved(
+            ticketPublicId, subject);
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.SUPPORT_TICKET_RESOLVED,
+            title, body, data, /* coalesceKey */ null));
+    }
+
+    @Override
+    public void supportTicketOpened(List<Long> adminUserIds, UUID ticketPublicId,
+                                    String subject, String submitterDisplayName, String category) {
+        if (ticketPublicId == null) {
+            log.warn("supportTicketOpened called with null ticketPublicId");
+            return;
+        }
+        if (adminUserIds == null || adminUserIds.isEmpty()) {
+            return;
+        }
+        String title = "New support ticket: " + subject;
+        String body = submitterDisplayName + " opened a new " + category
+            + " support ticket: " + subject;
+        Map<String, Object> data = NotificationDataBuilder.supportTicketOpened(
+            ticketPublicId, subject, submitterDisplayName, category);
+        adminFanoutInApp(adminUserIds,
+            NotificationCategory.SUPPORT_TICKET_OPENED, title, body, data, ticketPublicId);
+    }
+
+    @Override
+    public void supportTicketUserReplied(List<Long> adminUserIds, UUID ticketPublicId,
+                                         String subject, String submitterDisplayName) {
+        if (ticketPublicId == null) {
+            log.warn("supportTicketUserReplied called with null ticketPublicId");
+            return;
+        }
+        if (adminUserIds == null || adminUserIds.isEmpty()) {
+            return;
+        }
+        String title = "Support reply from " + submitterDisplayName + ": " + subject;
+        String body = submitterDisplayName + " replied to a support ticket: " + subject;
+        Map<String, Object> data = NotificationDataBuilder.supportTicketUserReplied(
+            ticketPublicId, subject, submitterDisplayName);
+        adminFanoutInApp(adminUserIds,
+            NotificationCategory.SUPPORT_TICKET_USER_REPLIED, title, body, data, ticketPublicId);
+    }
+
+    /**
+     * Per-recipient in-app fan-out for admin-facing support categories. Deferred
+     * to {@code afterCommit} so a rolled-back parent transaction never produces
+     * stray admin notifications. Each recipient runs in its own
+     * {@code REQUIRES_NEW} (same isolation as
+     * {@link #listingCancelledBySellerFanout}) so a stale/missing admin id does
+     * not abort delivery to the rest. The SL IM dispatcher is intentionally
+     * not invoked -- admins read the queue page, not their inbox.
+     */
+    private void adminFanoutInApp(List<Long> adminUserIds, NotificationCategory category,
+                                  String title, String body, Map<String, Object> data,
+                                  UUID ticketPublicId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (Long adminId : adminUserIds) {
+                    if (adminId == null) continue;
+                    try {
+                        UpsertResult result = requiresNewTxTemplate.execute(status ->
+                            notificationDao.upsert(adminId, category, title, body, data, null));
+                        wsBroadcaster.broadcastUpsert(adminId, result,
+                            supportAdminDtoFor(adminId, result, category, data, title, body));
+                    } catch (Exception ex) {
+                        log.warn("Admin support fan-out failed for adminId={} ticketPublicId={} category={}: {}",
+                            adminId, ticketPublicId, category, ex.toString());
+                    }
+                }
+            }
+        });
+    }
+
+    private NotificationDto supportAdminDtoFor(
+            long userId, UpsertResult result, NotificationCategory category,
+            Map<String, Object> data, String title, String body) {
+        return new NotificationDto(
+            result.publicId(),
+            category,
+            category.getGroup(),
+            title, body, data, false,
+            result.createdAt(), result.updatedAt()
+        );
+    }
+
     /** Common per-recipient publish path for realty group notifications. */
     private void publishOne(long userId, NotificationCategory category,
                             String title, String body, Map<String, Object> data) {

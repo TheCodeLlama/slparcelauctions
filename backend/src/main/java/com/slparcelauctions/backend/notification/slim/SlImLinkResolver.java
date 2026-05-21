@@ -69,6 +69,17 @@ public class SlImLinkResolver {
             // per-group admin reports queue using groupPublicId from the data blob.
             case GROUP_REPORT_THRESHOLD_REACHED ->
                 base + "/admin/realty-groups/" + data.get("groupPublicId") + "/reports";
+            // Customer support tickets. User-facing rows deeplink to the
+            // submitter's own ticket detail page; admin-facing rows deeplink
+            // to the admin ticket detail page. Admin categories never reach
+            // the SL IM dispatcher (NotificationPublisherImpl skips the
+            // SlImChannelDispatcher hop), but exhaustive switch coverage is
+            // mandatory so the deeplink is still resolved here for any
+            // future in-app row-click target consumer.
+            case SUPPORT_TICKET_ADMIN_REPLIED, SUPPORT_TICKET_RESOLVED ->
+                base + "/support/" + data.get("ticketPublicId");
+            case SUPPORT_TICKET_OPENED, SUPPORT_TICKET_USER_REPLIED ->
+                base + "/admin/support/" + data.get("ticketPublicId");
         };
     }
 

@@ -327,6 +327,59 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    // ── Customer support tickets ─────────────────────────────────────────────
+
+    /**
+     * User-facing payload: an admin replied. Carries the ticket's public id
+     * (UUID, wire-stable; the deeplink resolver consumes it via
+     * {@code SlImLinkResolver}) plus the subject and admin's display name so
+     * the bell row + SL IM body read on their own without an extra fetch.
+     */
+    public static Map<String, Object> supportTicketAdminReplied(
+            java.util.UUID ticketPublicId, String subject, String adminDisplayName) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ticketPublicId", ticketPublicId == null ? null : ticketPublicId.toString());
+        m.put("subject", subject);
+        m.put("adminDisplayName", adminDisplayName);
+        return m;
+    }
+
+    /** User-facing payload: the ticket was marked resolved. */
+    public static Map<String, Object> supportTicketResolved(
+            java.util.UUID ticketPublicId, String subject) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ticketPublicId", ticketPublicId == null ? null : ticketPublicId.toString());
+        m.put("subject", subject);
+        return m;
+    }
+
+    /**
+     * Admin-facing fan-out payload: a user opened a new ticket. Carries the
+     * submitter's display name (no public id; the ticket detail page surfaces
+     * full submitter identity) and the category so the queue row can display
+     * the category badge inline.
+     */
+    public static Map<String, Object> supportTicketOpened(
+            java.util.UUID ticketPublicId, String subject,
+            String submitterDisplayName, String category) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ticketPublicId", ticketPublicId == null ? null : ticketPublicId.toString());
+        m.put("subject", subject);
+        m.put("submitterDisplayName", submitterDisplayName);
+        m.put("category", category);
+        return m;
+    }
+
+    /** Admin-facing fan-out payload: the user posted a reply on an existing ticket. */
+    public static Map<String, Object> supportTicketUserReplied(
+            java.util.UUID ticketPublicId, String subject, String submitterDisplayName) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ticketPublicId", ticketPublicId == null ? null : ticketPublicId.toString());
+        m.put("subject", subject);
+        m.put("submitterDisplayName", submitterDisplayName);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);
