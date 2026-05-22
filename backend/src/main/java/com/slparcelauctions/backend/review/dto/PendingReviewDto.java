@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.PhotoUrl;
 import com.slparcelauctions.backend.escrow.Escrow;
-import com.slparcelauctions.backend.review.ReviewService;
 import com.slparcelauctions.backend.review.ReviewedRole;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserAvatarUrl;
@@ -14,10 +13,12 @@ import com.slparcelauctions.backend.user.UserAvatarUrl;
 /**
  * Wire shape for the dashboard's "reviews waiting for you to submit"
  * card. One row per completed escrow where the caller is a party and has
- * not yet submitted a review within the 14-day window (Epic 08 sub-spec 1
- * §4.2). {@link #of(Escrow, User, User, OffsetDateTime)} takes an
+ * not yet submitted a review within the review window (Epic 08 sub-spec 1
+ * §4.2). {@link #of(Escrow, User, User, OffsetDateTime, Duration)} takes an
  * explicit {@code now} so the service layer's Clock owns time — a
- * frozen-clock test can assert {@code hoursRemaining} deterministically.
+ * frozen-clock test can assert {@code hoursRemaining} deterministically —
+ * and the {@code reviewWindow} so the externalized {@code slpa.review.window-days}
+ * stays the single definition of the window.
  * The pre-resolved {@code counterparty} is provided by the service (the
  * {@link Escrow} only carries {@code winnerUserId} as a numeric id, not
  * a managed User ref) so this record stays pure.
@@ -42,13 +43,13 @@ public record PendingReviewDto(
 
     /**
      * Build a {@link PendingReviewDto} from a COMPLETED {@link Escrow},
-     * the viewer, the pre-resolved counterparty, and the service's
-     * injected {@code now}.
+     * the viewer, the pre-resolved counterparty, the service's injected
+     * {@code now}, and the configured review window.
      */
     public static PendingReviewDto of(Escrow e, User viewer, User counterparty,
-                                       OffsetDateTime now) {
+                                       OffsetDateTime now, Duration reviewWindow) {
         boolean viewerIsSeller = e.getAuction().getSeller().getId().equals(viewer.getId());
-        OffsetDateTime windowCloses = e.getCompletedAt().plus(ReviewService.REVIEW_WINDOW);
+        OffsetDateTime windowCloses = e.getCompletedAt().plus(reviewWindow);
         long hoursRemaining = Math.max(0L,
                 Duration.between(now, windowCloses).toHours());
 

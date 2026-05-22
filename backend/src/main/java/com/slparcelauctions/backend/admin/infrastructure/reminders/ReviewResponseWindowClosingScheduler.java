@@ -18,8 +18,8 @@ import java.util.List;
  * Daily scheduler (09:05 UTC) that fires a once-per-review response-window-closing
  * reminder when a visible review's response deadline is 24–48 hours away.
  *
- * <p>Response deadline = {@code revealedAt + 14 days} (mirrors the 14-day
- * review-submission window from {@link com.slparcelauctions.backend.review.ReviewService#REVIEW_WINDOW}).
+ * <p>Response deadline = {@code revealedAt + 14 days} (mirrors the
+ * review-submission window length {@code slpa.review.window-days}).
  * The reminder fires when that deadline ∈ [now+24h, now+48h].
  *
  * <p>Equivalently: {@code revealedAt ∈ [now−312h, now−288h]}.
@@ -40,7 +40,7 @@ import java.util.List;
 @Slf4j
 public class ReviewResponseWindowClosingScheduler {
 
-    /** Response-window length in hours (mirrors ReviewService.REVIEW_WINDOW). */
+    /** Response-window length in hours (mirrors slpa.review.window-days = 14). */
     private static final long RESPONSE_WINDOW_HOURS = 14L * 24L;  // 336h
 
     /** Reminder fires when deadline is this many hours away (leading edge). */

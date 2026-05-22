@@ -57,7 +57,7 @@ class PendingReviewDtoTest {
                 .payoutAmt(950L)
                 .build();
 
-        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now);
+        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now, java.time.Duration.ofDays(14));
 
         assertThat(dto.counterpartyAvatarUrl())
                 .isEqualTo("/api/v1/users/" + counterpartyPublicId + "/avatar/256");
@@ -106,7 +106,7 @@ class PendingReviewDtoTest {
                 .payoutAmt(950L)
                 .build();
 
-        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now);
+        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now, java.time.Duration.ofDays(14));
 
         assertThat(dto.primaryPhotoUrl())
                 .isEqualTo("/api/v1/photos/" + photoPublicId);
@@ -140,7 +140,7 @@ class PendingReviewDtoTest {
                 .payoutAmt(950L)
                 .build();
 
-        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now);
+        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, counterparty, now, java.time.Duration.ofDays(14));
 
         assertThat(dto.primaryPhotoUrl()).isNull();
     }
@@ -176,7 +176,7 @@ class PendingReviewDtoTest {
                 .payoutAmt(950L)
                 .build();
 
-        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, null, now);
+        PendingReviewDto dto = PendingReviewDto.of(escrow, seller, null, now, java.time.Duration.ofDays(14));
 
         assertThat(dto.counterpartyAvatarUrl()).isNull();
     }

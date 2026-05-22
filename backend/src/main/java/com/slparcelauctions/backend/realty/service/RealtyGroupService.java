@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDenied
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
 import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
@@ -74,6 +75,7 @@ public class RealtyGroupService {
     private final EscrowRepository escrows;
     private final RealtyGroupSlGroupRepository slGroupRepo;
     private final RealtyGroupGuard realtyGroupGuard;
+    private final RealtyGroupModerationProperties realtyProperties;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -106,6 +108,7 @@ public class RealtyGroupService {
             .leaderId(creatorUserId)
             .description(description)
             .website(website)
+            .memberSeatLimit(realtyProperties.getDefaultMemberSeatLimit())
             .build();
         group = groups.save(group);
 

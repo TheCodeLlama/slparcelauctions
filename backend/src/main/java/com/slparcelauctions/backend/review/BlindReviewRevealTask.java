@@ -14,11 +14,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Hourly scheduler that flips day-14 pending reviews to
+ * Hourly scheduler that flips pending reviews past the review window to
  * {@code visible=true} (spec §5). Runs at the top of every hour and
- * processes up to {@value #BATCH_LIMIT} reviews per tick; batch-limit
- * hits are logged at WARN so operators notice sustained backlog (catch
- * up on the next tick is fine — reveal is idempotent).
+ * processes up to {@code slpa.review.reveal-batch-limit} reviews per tick;
+ * batch-limit hits are logged at WARN so operators notice sustained backlog
+ * (catch up on the next tick is fine — reveal is idempotent).
  *
  * <p>Each per-review reveal runs inside its own transaction via
  * {@link ReviewService#reveal(Long)} so a single failing row doesn't
@@ -41,12 +41,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BlindReviewRevealTask {
 
-    /** Keep in sync with {@link ReviewService#REVIEW_WINDOW}. */
-    private static final Duration REVIEW_WINDOW = Duration.ofDays(14);
-    private static final int BATCH_LIMIT = 500;
-
     private final ReviewRepository reviewRepo;
     private final ReviewService reviewService;
+    private final ReviewProperties reviewProperties;
     private final Clock clock;
 
     /** Top of every hour. Cron: {@code second minute hour day month dow}. */
@@ -62,14 +59,16 @@ public class BlindReviewRevealTask {
      * can assert on batch size.
      */
     int runOnce() {
-        OffsetDateTime threshold = OffsetDateTime.now(clock).minus(REVIEW_WINDOW);
+        int batchLimit = reviewProperties.revealBatchLimit();
+        OffsetDateTime threshold = OffsetDateTime.now(clock)
+                .minus(Duration.ofDays(reviewProperties.windowDays()));
         List<Review> revealable = reviewRepo.findRevealable(
-                threshold, PageRequest.of(0, BATCH_LIMIT));
+                threshold, PageRequest.of(0, batchLimit));
         if (revealable.isEmpty()) {
             return 0;
         }
 
-        log.info("BlindReviewReveal: {} reviews past day-14 window", revealable.size());
+        log.info("BlindReviewReveal: {} reviews past the review window", revealable.size());
         int processed = 0;
         for (Review r : revealable) {
             try {
@@ -79,9 +78,9 @@ public class BlindReviewRevealTask {
                 log.error("Failed to reveal review {}: {}", r.getId(), e.toString());
             }
         }
-        if (revealable.size() == BATCH_LIMIT) {
+        if (revealable.size() == batchLimit) {
             log.warn("BlindReviewReveal: hit batch limit {}; re-running next tick",
-                    BATCH_LIMIT);
+                    batchLimit);
         }
         return processed;
     }

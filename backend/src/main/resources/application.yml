@@ -290,8 +290,19 @@ slpa:
       reverify-fetch-failure-threshold: 3
       reverify:
         enabled: true
+      # SL-group registration verification-code TTL. The code printed by the
+      # founder terminal is valid for this many days before the pending
+      # registration must be re-issued (RealtyGroupSlGroupService).
+      verification-ttl-days: 7
     group-suspension-expiry:
       enabled: true
+    # Default per-group member seat cap stamped on a newly created RealtyGroup.
+    # The column itself stays per-group (an admin can raise an individual
+    # group's cap); this is only the baseline applied at group-creation time.
+    default-member-seat-limit: 50
+    # Realty-group invitation lifetime before auto-expiry, in days
+    # (RealtyGroupInvitationService, spec §3.3).
+    invitation-ttl-days: 7
     # Sub-project H section 6 -- per-call ceiling on member-initiated deposits into a
     # realty group's wallet (app flow + in-world flow). Fat-finger protection only;
     # the depositor's personal balance and walking-around L$ are the natural caps.
@@ -303,6 +314,21 @@ slpa:
     # ReportsProperties (slpa.reports.*). One-shot per cycle: re-arms when the
     # open count returns to zero. Default 3; minimum 1.
     group-alert-threshold: 3
+    # Per-reporter daily report-submission quota (RealtyGroupReportRateLimiter).
+    # A single bucket shared across listing + realty-group reports per spec
+    # §12.1 so a spammer cannot rotate target types to multiply the cap. Lives
+    # here alongside group-alert-threshold because both knobs govern listing-
+    # side reports too, not just realty-group reports.
+    daily-limit: 5
+  review:
+    # Blind-review business window, in days. SINGLE SOURCE for both the review
+    # submission cutoff (ReviewService) and the reveal-eligibility threshold
+    # (BlindReviewRevealTask) -- they are the same business window viewed from
+    # two sides and MUST stay equal, so they share this one key.
+    window-days: 14
+    # Rows processed per run of the hourly review-reveal scheduler
+    # (BlindReviewRevealTask). Batch-limit hits are logged at WARN.
+    reveal-batch-limit: 500
   support:
     rate-limit:
       tickets-per-hour: 5

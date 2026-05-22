@@ -46,7 +46,8 @@ class BlindReviewRevealTaskTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
-        task = new BlindReviewRevealTask(reviewRepo, reviewService, clock);
+        task = new BlindReviewRevealTask(reviewRepo, reviewService,
+                new ReviewProperties(14, 500), clock);
     }
 
     private Review pending(Long id) {

@@ -54,6 +54,10 @@ class RealtyGroupInvitationServiceAcceptTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
+    @org.mockito.Spy
+    com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties
+            realtyProperties =
+            new com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties();
 
     @InjectMocks RealtyGroupInvitationService service;
 

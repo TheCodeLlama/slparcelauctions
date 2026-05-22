@@ -114,6 +114,21 @@ public class RealtyGroup extends BaseMutableEntity {
     @Column(columnDefinition = "text")
     private String website;
 
+    /**
+     * Per-group member seat cap. The operative production default is
+     * config-sourced: {@code RealtyGroupService.createGroup} stamps
+     * {@code slpa.realty.default-member-seat-limit} on every newly created
+     * group, overriding the {@code @Builder.Default} literal below. The column
+     * stays per-group so an admin can raise an individual group's cap.
+     *
+     * <p>The {@code @Builder.Default = 50} literal is retained ONLY as a
+     * non-null fallback for builder-constructed entities that do not go through
+     * the creation service (chiefly test fixtures) -- a {@code @SuperBuilder}
+     * without {@code @Builder.Default} would leave the field {@code null},
+     * which the {@code NOT NULL} column rejects on a later UPDATE. It is not
+     * the externalization target: the value that reaches a real group is the
+     * config one.
+     */
     @Builder.Default
     @Column(name = "member_seat_limit", nullable = false)
     private Integer memberSeatLimit = 50;
