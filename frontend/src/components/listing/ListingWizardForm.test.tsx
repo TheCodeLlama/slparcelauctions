@@ -961,6 +961,50 @@ describe("ListingWizardForm — bid increment field", () => {
     });
   });
 
+  it("blocks submit and shows inline error when bid increment is 0", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "0");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save & continue/i }),
+    );
+
+    expect(
+      await screen.findByText("Minimum bid increment must be at least L$1."),
+    ).toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("blocks submit and shows inline error when bid increment is fractional", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "0.5");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save & continue/i }),
+    );
+
+    expect(
+      await screen.findByText("Minimum bid increment must be at least L$1."),
+    ).toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
   it("includes bidIncrement in the submitted request payload", async () => {
     let capturedBody: Record<string, unknown> | null = null;
     server.use(
