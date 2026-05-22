@@ -96,13 +96,20 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [titleError, setTitleError] = useState<string | null>(null);
   const [bidIncrementError, setBidIncrementError] = useState<string | null>(null);
   const [groupWalletInsufficient, setGroupWalletInsufficient] = useState(false);
+  const isEdit = mode === "edit";
+
   /**
    * Tracks whether the seller has manually edited the bid increment field.
    * While false, the field auto-tracks the suggestion derived from the
    * starting bid. Once the seller types in the field directly, this flips
    * to true and the field stops auto-tracking.
+   *
+   * Initialized to true in edit mode because the server-hydrated value is
+   * the creator's already-chosen increment and must not be auto-clobbered
+   * if the seller changes the starting bid before touching the increment
+   * field.
    */
-  const bidIncrementDirtyRef = useRef(false);
+  const bidIncrementDirtyRef = useRef(isEdit);
   /**
    * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
    * {@link SuspensionReasonCode} when the wizard's save call returns a
@@ -112,8 +119,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
    */
   const [suspensionCode, setSuspensionCode] =
     useState<SuspensionReasonCode | null>(null);
-
-  const isEdit = mode === "edit";
 
   // Listing-eligible groups — only relevant in create mode. The picker is
   // hidden in edit mode because group attribution is immutable after creation.

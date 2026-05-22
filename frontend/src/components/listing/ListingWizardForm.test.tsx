@@ -1031,4 +1031,50 @@ describe("ListingWizardForm — bid increment field", () => {
     await waitFor(() => expect(capturedBody).toBeTruthy());
     expect(capturedBody!.bidIncrement).toBe(75);
   });
+
+  it("does not auto-clobber the server-hydrated increment when starting bid changes in edit mode", async () => {
+    // startingBid=5000 with bidIncrement=777. suggestedBidIncrement(5000) = 100,
+    // which is not 777. If the dirty ref were false (the bug), changing
+    // startingBid would overwrite 777 with 100.
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000039", () =>
+        HttpResponse.json(
+          sellerResponse({
+            publicId: "00000000-0000-0000-0000-000000000039",
+            status: "DRAFT",
+            startingBid: 5000,
+            bidIncrement: 777,
+          }),
+        ),
+      ),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(
+      <ListingWizardForm mode="edit" id="00000000-0000-0000-0000-000000000039" />,
+    );
+
+    // Wait for hydration.
+    await screen.findByText("Beachfront retreat");
+
+    const incrementInput = (await screen.findByTestId(
+      "bid-increment-input",
+    )) as HTMLInputElement;
+
+    // Server value must be present after hydration.
+    await waitFor(() => {
+      expect(Number(incrementInput.value)).toBe(777);
+    });
+
+    // Change the starting bid without touching the increment field.
+    const startingBid = screen.getByLabelText(/Starting bid/i);
+    await userEvent.clear(startingBid);
+    await userEvent.type(startingBid, "1000");
+
+    // Increment must remain at the server-set 777, not silently drop to
+    // suggestedBidIncrement(1000) = 50.
+    await waitFor(() => {
+      expect(Number(incrementInput.value)).toBe(777);
+    });
+  });
 });
