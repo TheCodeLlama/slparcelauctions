@@ -50,6 +50,21 @@ public class SearchRateLimitConfig {
     @Value("${spring.data.redis.password:}")
     private String redisPassword;
 
+    @Value("${slpa.ratelimit.cache-ttl}")
+    private Duration cacheTtl;
+
+    @Value("${slpa.ratelimit.search.capacity}")
+    private long searchCapacity;
+
+    @Value("${slpa.ratelimit.search.refill}")
+    private Duration searchRefill;
+
+    @Value("${slpa.ratelimit.suggest.capacity}")
+    private long suggestCapacity;
+
+    @Value("${slpa.ratelimit.suggest.refill}")
+    private Duration suggestRefill;
+
     @Bean(destroyMethod = "shutdown")
     public RedisClient rateLimitRedisClient() {
         // Build the URI explicitly rather than using RedisURI.create(host, port)
@@ -86,12 +101,12 @@ public class SearchRateLimitConfig {
             StatefulRedisConnection<String, byte[]> connection) {
         // bucket4j 8.14: ExpirationAfterWriteStrategy.fixedTimeToLive(Duration)
         // replaces the older AbstractRedisProxyManagerBuilder.ExpirationStrategy
-        // .fixedTimeStrategy(...) helper. Ten minutes is comfortably longer than
-        // the 60-second refill window, so idle keys evict promptly without
-        // truncating an in-flight refill.
+        // .fixedTimeStrategy(...) helper. The TTL (slpa.ratelimit.cache-ttl) is
+        // comfortably longer than the refill window, so idle keys evict
+        // promptly without truncating an in-flight refill.
         return LettuceBasedProxyManager.builderFor(connection)
                 .withExpirationStrategy(
-                        ExpirationAfterWriteStrategy.fixedTimeToLive(Duration.ofMinutes(10)))
+                        ExpirationAfterWriteStrategy.fixedTimeToLive(cacheTtl))
                 .build();
     }
 
@@ -99,8 +114,8 @@ public class SearchRateLimitConfig {
     public BucketConfiguration searchBucketConfiguration() {
         return BucketConfiguration.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(60)
-                        .refillGreedy(60, Duration.ofMinutes(1))
+                        .capacity(searchCapacity)
+                        .refillGreedy(searchCapacity, searchRefill)
                         .build())
                 .build();
     }
@@ -115,8 +130,8 @@ public class SearchRateLimitConfig {
     public BucketConfiguration suggestBucketConfiguration() {
         return BucketConfiguration.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(300)
-                        .refillGreedy(300, Duration.ofMinutes(1))
+                        .capacity(suggestCapacity)
+                        .refillGreedy(suggestCapacity, suggestRefill)
                         .build())
                 .build();
     }

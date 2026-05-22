@@ -28,7 +28,8 @@ import lombok.RequiredArgsConstructor;
  *       kind is never {@link CancellationOffenseKind#NONE}.</li>
  *   <li>{@link #historyFor(Long, Pageable)} — paginated read of
  *       {@link CancellationLog} rows for the caller, sorted
- *       {@code cancelledAt DESC}. Page size is clamped at 50 to prevent
+ *       {@code cancelledAt DESC}. Page size is clamped at
+ *       {@code slpa.auction.cancellation-status-max-page} to prevent
  *       abuse.</li>
  * </ul>
  *
@@ -39,12 +40,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CancellationStatusService {
 
-    /** Page size cap so callers can't request unbounded history pages. */
-    static final int MAX_PAGE_SIZE = 50;
-
     private final CancellationLogRepository logRepo;
     private final UserRepository userRepo;
     private final CancellationPenaltyProperties penaltyProps;
+    private final AuctionConfigProperties config;
 
     @Transactional(readOnly = true)
     public CancellationStatusResponse statusFor(Long userId) {
@@ -90,10 +89,10 @@ public class CancellationStatusService {
     @Transactional(readOnly = true)
     public Page<CancellationHistoryDto> historyFor(Long userId, Pageable page) {
         // Caller's Sort is ignored — spec §7.4 pins cancelledAt DESC. Size
-        // is clamped at MAX_PAGE_SIZE on the way in.
+        // is clamped at slpa.auction.cancellation-status-max-page on the way in.
         Pageable sorted = PageRequest.of(
                 page.getPageNumber(),
-                Math.min(page.getPageSize(), MAX_PAGE_SIZE),
+                Math.min(page.getPageSize(), config.cancellationStatusMaxPage()),
                 Sort.by(Sort.Direction.DESC, "cancelledAt"));
         Page<CancellationLog> logs = logRepo.findBySellerId(userId, sorted);
         return logs.map(log -> CancellationHistoryDto.from(

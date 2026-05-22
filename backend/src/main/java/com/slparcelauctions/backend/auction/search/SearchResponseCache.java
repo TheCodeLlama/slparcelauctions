@@ -7,28 +7,34 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Read-through cache for /auctions/search responses. Get-or-compute: on
  * hit returns the cached SearchPagedResponse; on miss calls the
- * supplier, caches the result with a 30s TTL, and returns it.
+ * supplier, caches the result with the {@code slpa.auction.search-cache-ttl}
+ * TTL, and returns it.
  *
  * <p>Keyed on {@link SearchCacheKey#keyFor(AuctionSearchQuery)} so the
  * same filters + pagination produce the same key regardless of Set
- * iteration order on the input. No event-driven invalidation - the 30s
- * TTL is the invalidator.
+ * iteration order on the input. No event-driven invalidation - the TTL
+ * is the invalidator. The TTL is kept aligned with the {@code Cache-Control}
+ * max-age the search controller emits.
  */
 @Component
 @Slf4j
 public class SearchResponseCache {
 
-    public static final Duration TTL = Duration.ofSeconds(30);
-
     private final RedisTemplate<String, Object> redis;
+    private final Duration ttl;
 
-    public SearchResponseCache(@Qualifier("epic07RedisTemplate") RedisTemplate<String, Object> redis) {
+    public SearchResponseCache(
+            @Qualifier("epic07RedisTemplate") RedisTemplate<String, Object> redis,
+            AuctionConfigProperties config) {
         this.redis = redis;
+        this.ttl = config.searchCacheTtl();
     }
 
     @SuppressWarnings("unchecked")
@@ -51,7 +57,7 @@ public class SearchResponseCache {
         log.debug("Search cache MISS: {}", key);
         SearchPagedResponse<AuctionSearchResultDto> computed = compute.get();
         try {
-            redis.opsForValue().set(key, computed, TTL);
+            redis.opsForValue().set(key, computed, ttl);
         } catch (RuntimeException e) {
             log.warn("Failed to cache search response for key {}: {}",
                     key, e.toString());

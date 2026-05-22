@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -45,9 +46,9 @@ import lombok.RequiredArgsConstructor;
  * Saved-auctions read/write surface for the bidder dashboard.
  *
  * <p><strong>Cap enforcement.</strong> Each user is capped at
- * {@value #SAVED_CAP} saved rows. Without serialization, two concurrent
- * POSTs against the cap (count = 499) could each pass the count check
- * and insert, yielding 501. We take a per-user PostgreSQL transaction-scoped
+ * {@code slpa.auction.saved-auctions-cap} saved rows. Without serialization,
+ * two concurrent POSTs against the cap could each pass the count check
+ * and insert, breaching the ceiling. We take a per-user PostgreSQL transaction-scoped
  * advisory lock ({@code pg_advisory_xact_lock(hashtext("saved:" + userId))})
  * before re-counting and inserting. The lock is released automatically on
  * commit/rollback. Different users hash to different lock keys, so this
@@ -78,8 +79,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SavedAuctionService {
 
-    public static final int SAVED_CAP = 500;
-
     /**
      * Pre-activation states. Saving these is forbidden (POST guard) and the
      * {@code ended_only} filter excludes them from the saved-list view.
@@ -100,6 +99,7 @@ public class SavedAuctionService {
     private final AuctionTagBatchRepository tagBatchRepo;
     private final AuctionPhotoBatchRepository photoBatchRepo;
     private final AuctionSearchResultMapper mapper;
+    private final AuctionConfigProperties config;
 
     @Transactional
     public SavedAuctionDto save(Long userId, UUID auctionPublicId) {
@@ -124,7 +124,7 @@ public class SavedAuctionService {
                 "saved:" + userId);
 
         long count = savedRepo.countByUserId(userId);
-        if (count >= SAVED_CAP) {
+        if (count >= config.savedAuctionsCap()) {
             throw new SavedLimitReachedException();
         }
 

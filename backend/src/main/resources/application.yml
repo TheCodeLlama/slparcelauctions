@@ -116,6 +116,55 @@ slpa:
     timeout-ms: 10000
     retry-attempts: 3
     retry-backoff-ms: 500
+  auction:
+    # Saved-auctions per-user cap. SavedAuctionService enforces it under a
+    # per-user advisory lock so concurrent saves can't race past the ceiling.
+    saved-auctions-cap: 500
+    # /auctions/search pagination + distance bounds. search-default-page-size
+    # mirrors the @RequestParam(defaultValue) literal on the search/saved
+    # controllers (which must stay a compile-time constant) - keep the two
+    # aligned. search-max-page-size / search-max-distance are the validator's
+    # clamp ceilings; search-default-distance is the radius used when
+    # near_region is supplied without an explicit distance.
+    search-max-page-size: 100
+    search-max-distance: 50
+    search-default-distance: 10
+    search-default-page-size: 24
+    # Seller cancellation-history page-size clamp (CancellationStatusService).
+    cancellation-status-max-page: 50
+    # Default page size for the bidder dashboard My Bids endpoint.
+    my-bids-default-page-size: 20
+    # Suggest / typeahead row caps (SearchSuggestService). The near_region
+    # autocomplete listbox draws from the full regions table so it gets a
+    # larger cap than the header-overlay region group.
+    search-suggest-listings-limit: 5
+    search-suggest-regions-limit: 3
+    search-suggest-resolvable-regions-limit: 10
+    # WebClient timeout for the best-effort SL parcel-snapshot image fetch.
+    snapshot-fetch-timeout: PT5S
+    # Read-through cache TTLs for the featured rows and /auctions/search.
+    # search-cache-ttl MUST stay aligned with the 30s Cache-Control max-age
+    # the search controller emits - change both together.
+    featured-cache-ttl: PT60S
+    search-cache-ttl: PT30S
+  ratelimit:
+    # bucket4j Redis-backed rate limiters fronting /auctions/search and the
+    # suggest/typeahead endpoint. capacity is the per-IP burst; refill is the
+    # ISO-8601 window the bucket greedily refills over.
+    search:
+      capacity: 60
+      refill: PT1M
+    suggest:
+      capacity: 300
+      refill: PT1M
+    # TTL on the rate-limit bucket keys in Redis. Comfortably longer than the
+    # refill window so idle keys evict promptly without truncating a refill.
+    cache-ttl: PT10M
+  wallet:
+    # In-memory rate limit on the per-user ledger CSV export endpoint.
+    ledger-export-rate-limit: PT60S
+    # Page-size clamp on GET /me/wallet/ledger.
+    ledger-max-page-size: 100
   listing-fee:
     amount-lindens: 100
   commission:

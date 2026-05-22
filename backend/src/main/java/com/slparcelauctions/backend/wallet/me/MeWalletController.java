@@ -62,8 +62,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MeWalletController {
 
-    private static final int MAX_LEDGER_PAGE_SIZE = 100;
-
     private final WalletService walletService;
     private final RealtyGroupWalletService realtyGroupWalletService;
     private final UserRepository userRepository;
@@ -75,6 +73,9 @@ public class MeWalletController {
 
     @Value("${slpa.listing-fee.amount-lindens:100}")
     private Long defaultListingFee;
+
+    @Value("${slpa.wallet.ledger-max-page-size}")
+    private int maxLedgerPageSize;
 
     /* ============================================================ */
     /* GET /me/wallet                                                */
@@ -134,7 +135,7 @@ public class MeWalletController {
             @ModelAttribute LedgerFilterParams params,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        int pageSize = Math.min(Math.max(size, 1), MAX_LEDGER_PAGE_SIZE);
+        int pageSize = Math.min(Math.max(size, 1), maxLedgerPageSize);
         int clampedPage = Math.max(page, 0);
         Pageable p = PageRequest.of(clampedPage, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<LedgerRow> result = ledgerRepository.findCollapsedForUser(

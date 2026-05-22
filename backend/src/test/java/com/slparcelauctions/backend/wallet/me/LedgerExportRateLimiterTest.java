@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.wallet.me;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -14,6 +15,9 @@ import org.junit.jupiter.api.Test;
  * mutable clock so we can drive the window boundaries deterministically.
  */
 class LedgerExportRateLimiterTest {
+
+    /** Mirrors the production default slpa.wallet.ledger-export-rate-limit. */
+    private static final Duration WINDOW = Duration.ofSeconds(60);
 
     /**
      * Minimal mutable clock — wraps a {@link Instant} we can advance in
@@ -34,7 +38,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void firstCall_returnsTrue() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
     }
@@ -42,7 +46,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void secondCallInsideWindow_returnsFalse() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
         clock.advanceSeconds(30);
@@ -52,7 +56,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void afterWindow_returnsTrueAgain() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
         clock.advanceSeconds(60);
@@ -63,7 +67,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void afterWindow_well_pastWindow_returnsTrue() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
         clock.advanceSeconds(120);
@@ -73,7 +77,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void differentUsers_haveSeparateBuckets() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
         // user 2 should still be allowed even though user 1 just consumed.
@@ -85,7 +89,7 @@ class LedgerExportRateLimiterTest {
     @Test
     void resetForTesting_clearsState() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T12:00:00Z"));
-        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock);
+        LedgerExportRateLimiter limiter = new LedgerExportRateLimiter(clock, WINDOW);
 
         assertThat(limiter.tryAcquire(1L)).isTrue();
         limiter.resetForTesting();

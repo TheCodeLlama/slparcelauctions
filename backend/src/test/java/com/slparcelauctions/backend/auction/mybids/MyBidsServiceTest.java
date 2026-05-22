@@ -26,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionConfigPropertiesFixture;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
@@ -66,7 +67,8 @@ class MyBidsServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MyBidsService(bidRepo, auctionRepo, proxyBidRepo, escrowRepo);
+        service = new MyBidsService(bidRepo, auctionRepo, proxyBidRepo, escrowRepo,
+                AuctionConfigPropertiesFixture.defaults());
         // Default to no escrow rows for the page — most cases target ACTIVE
         // auctions with no escrow row yet. Marked lenient because many tests
         // short-circuit before ids are hydrated (empty page, filter mismatch).

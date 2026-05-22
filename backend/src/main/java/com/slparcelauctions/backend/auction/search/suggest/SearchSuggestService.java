@@ -4,34 +4,28 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
+
 import lombok.RequiredArgsConstructor;
 
 /**
  * Orchestrates the three native-SQL queries behind the suggest
- * endpoint. The hard caps (5 listings, 3 regions) are spec-fixed
- * (§5.2); only {@code totalListings} is unbounded so the popover footer
- * can advertise the full match count.
+ * endpoint. The row caps are externalized to {@code slpa.auction.*}
+ * ({@code search-suggest-listings-limit} / {@code -regions-limit} /
+ * {@code -resolvable-regions-limit}); only {@code totalListings} is
+ * unbounded so the popover footer can advertise the full match count.
  */
 @Service
 @RequiredArgsConstructor
 public class SearchSuggestService {
 
-    private static final int LISTINGS_LIMIT = 5;
-    private static final int REGIONS_LIMIT = 3;
-    /**
-     * The Browse {@code near_region} autocomplete listbox shows more
-     * rows than the header-overlay's 3-region group, and it draws from
-     * the full {@code regions} table rather than active-auction
-     * regions, so it gets its own (larger) cap.
-     */
-    private static final int RESOLVABLE_REGIONS_LIMIT = 10;
-
     private final SearchSuggestRepository repo;
+    private final AuctionConfigProperties config;
 
     public SuggestResponse suggest(String trimmed) {
         return new SuggestResponse(
-                repo.findListings(trimmed, LISTINGS_LIMIT),
-                repo.findRegions(trimmed, REGIONS_LIMIT),
+                repo.findListings(trimmed, config.searchSuggestListingsLimit()),
+                repo.findRegions(trimmed, config.searchSuggestRegionsLimit()),
                 repo.countListings(trimmed));
     }
 
@@ -46,7 +40,7 @@ public class SearchSuggestService {
     public SuggestResponse suggestRegionsOnly(String trimmed) {
         return new SuggestResponse(
                 List.of(),
-                repo.findResolvableRegions(trimmed, RESOLVABLE_REGIONS_LIMIT),
+                repo.findResolvableRegions(trimmed, config.searchSuggestResolvableRegionsLimit()),
                 0);
     }
 }

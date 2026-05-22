@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidRepository;
@@ -56,9 +57,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MyBidsService {
 
-    /** Default page size mirrors spec §4 ({@code size=20}). */
-    private static final int DEFAULT_PAGE_SIZE = 20;
-
     private static final Set<MyBidStatus> LOST_BUCKET_STATUSES = EnumSet.of(
             MyBidStatus.LOST,
             MyBidStatus.RESERVE_NOT_MET,
@@ -69,6 +67,7 @@ public class MyBidsService {
     private final AuctionRepository auctionRepo;
     private final ProxyBidRepository proxyBidRepo;
     private final EscrowRepository escrowRepo;
+    private final AuctionConfigProperties config;
 
     /**
      * Returns the caller's paginated My Bids page. {@code statusParam} accepts
@@ -168,9 +167,10 @@ public class MyBidsService {
                 auctionIdsPage.getTotalElements());
     }
 
-    private static Pageable withDefaults(Pageable pageable) {
+    private Pageable withDefaults(Pageable pageable) {
         if (pageable == null || pageable.isUnpaged()) {
-            return Pageable.ofSize(DEFAULT_PAGE_SIZE);
+            // Default page size from slpa.auction.my-bids-default-page-size.
+            return Pageable.ofSize(config.myBidsDefaultPageSize());
         }
         return pageable;
     }
