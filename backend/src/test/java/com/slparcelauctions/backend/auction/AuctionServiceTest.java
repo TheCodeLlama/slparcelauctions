@@ -96,7 +96,7 @@ class AuctionServiceTest {
     @Test
     void create_validRequest_savesInDraft() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, false, null, "Nice parcel", Set.of(), null);
 
         Auction a = service.create(42L, req, null);
@@ -115,7 +115,7 @@ class AuctionServiceTest {
         // running them in the wrong order would put the snapshot at 0 and
         // the cover at 1.
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, false, null, "Nice parcel", Set.of(), null);
 
         service.create(42L, req, null);
@@ -181,7 +181,7 @@ class AuctionServiceTest {
 
         String over120 = "x".repeat(121);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, over120, null, null, null, null, null, null, null, null);
+                null, over120, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -197,7 +197,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, "   ", null, null, null, null, null, null, null, null);
+                null, "   ", null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -211,7 +211,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getTitle()).isEqualTo("Original");
@@ -224,7 +224,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, "Renamed listing", null, null, null, null, null, null, null, null);
+                null, "Renamed listing", null, null, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getTitle()).isEqualTo("Renamed listing");
@@ -316,14 +316,14 @@ class AuctionServiceTest {
 
     private AuctionCreateRequest minimalCreateRequest(String title) {
         return new AuctionCreateRequest(
-                PARCEL_UUID, title, 1000L, null, null,
+                PARCEL_UUID, title, 1000L, null, null, null,
                 168, false, null, null, Set.of(), null);
     }
 
     @Test
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, true, 10, null, Set.of(), null);
 
         Auction a = service.create(42L, req, null);
@@ -339,7 +339,7 @@ class AuctionServiceTest {
     @Test
     void create_reservePriceLessThanStarting_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, 500L, null,
+                PARCEL_UUID, "Test listing", 1000L, 500L, null, null,
                 168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -350,7 +350,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, 5000L, 4000L,
+                PARCEL_UUID, "Test listing", 1000L, 5000L, 4000L, null,
                 168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -361,7 +361,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanStartingWithNoReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, 500L,
+                PARCEL_UUID, "Test listing", 1000L, null, 500L, null,
                 168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -376,7 +376,7 @@ class AuctionServiceTest {
     @Test
     void create_durationNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 100, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -391,7 +391,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectTrueWithNullWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, true, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -402,7 +402,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectFalseWithWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, false, 10, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -413,7 +413,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeWindowNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, true, 7, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -435,7 +435,7 @@ class AuctionServiceTest {
                         .active(true).build()));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, false, null, null, codes, null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -450,12 +450,40 @@ class AuctionServiceTest {
         when(parcelLookupService.lookup(unknownUuid))
                 .thenThrow(new IllegalArgumentException("Parcel not found: " + unknownUuid));
         AuctionCreateRequest req = new AuctionCreateRequest(
-                unknownUuid, "Test listing", 1000L, null, null,
+                unknownUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Parcel not found");
+    }
+
+    // -------------------------------------------------------------------------
+    // create(): bidIncrement resolution
+    // -------------------------------------------------------------------------
+
+    @Test
+    void create_nullBidIncrement_usesSuggesterForStartingBid() {
+        // startingBid = 5000 falls in tier [1000, 10000) -> suggested increment = 100
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                PARCEL_UUID, "Test listing", 5000L, null, null, null,
+                168, false, null, null, Set.of(), null);
+
+        Auction a = service.create(42L, req, null);
+
+        assertThat(a.getBidIncrement()).isEqualTo(100L);
+    }
+
+    @Test
+    void create_explicitBidIncrement_overridesSuggester() {
+        // Explicit increment = 250 even though suggester would give 100 for startingBid = 5000
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                PARCEL_UUID, "Test listing", 5000L, null, null, 250L,
+                168, false, null, null, Set.of(), null);
+
+        Auction a = service.create(42L, req, null);
+
+        assertThat(a.getBidIncrement()).isEqualTo(250L);
     }
 
     // -------------------------------------------------------------------------
@@ -468,7 +496,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2000L, null, null, null, null, null, "updated desc", null);
+                null, null, 2000L, null, null, null, null, null, null, "updated desc", null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -481,7 +509,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -493,7 +521,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -505,7 +533,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -519,11 +547,24 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, null, null, null, null, false, null, null, null);
+                null, null, null, null, null, null, null, false, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getSnipeProtect()).isFalse();
         assertThat(updated.getSnipeWindowMin()).isNull();
+    }
+
+    @Test
+    void update_bidIncrement_overwritesExisting() {
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        existing.setBidIncrement(50L);
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                null, null, null, null, null, 300L, null, null, null, null, null);
+        Auction updated = service.update(1L, 42L, req);
+
+        assertThat(updated.getBidIncrement()).isEqualTo(300L);
     }
 
     // -------------------------------------------------------------------------

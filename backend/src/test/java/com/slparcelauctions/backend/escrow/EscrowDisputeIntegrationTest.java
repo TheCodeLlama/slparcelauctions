@@ -308,8 +308,8 @@ class EscrowDisputeIntegrationTest {
                     .auction(auction)
                     .state(startingState)
                     .finalBidAmount(finalBid)
-                    .commissionAmt(commissionCalculator.commission(finalBid))
-                    .payoutAmt(commissionCalculator.payout(finalBid))
+                    .commissionAmt(commissionCalculator.commission(finalBid, auction.getCommissionRate()))
+                    .payoutAmt(commissionCalculator.payout(finalBid, auction.getCommissionRate()))
                     .consecutiveWorldApiFailures(0);
 
             if (funded || startingState == EscrowState.TRANSFER_PENDING

@@ -56,7 +56,7 @@ import lombok.extern.slf4j.Slf4j;
  * runs. This guarantees that two concurrent bids on the same auction are
  * strictly serialised at the database layer — the loser reads the
  * committed {@code currentBid} after the winner's commit lands, which
- * pushes the amount below {@code currentBid + minIncrement} and trips
+ * pushes the amount below {@code currentBid + auction.bidIncrement} and trips
  * {@link BidTooLowException}. The pin test for this guarantee lives in
  * {@code BidBidRaceTest}.
  *
@@ -158,12 +158,12 @@ public class BidService {
         bidder = lockedBidder;
 
         // Step 5 — minimum-bid gate. First bid must clear startingBid;
-        // subsequent bids must clear currentBid + minIncrement(currentBid).
-        // The increment tier is keyed off the *current* bid, not the
-        // proposed amount — see BidIncrementTable javadoc.
+        // subsequent bids must clear currentBid + auction.bidIncrement.
+        // The per-auction column is the sole runtime authority on the
+        // required step-up once an auction exists.
         long currentBid = auction.getCurrentBid() == null ? 0L : auction.getCurrentBid();
         long minRequired = currentBid > 0L
-                ? currentBid + BidIncrementTable.minIncrement(currentBid)
+                ? currentBid + auction.getBidIncrement()
                 : auction.getStartingBid();
         if (amount < minRequired) {
             throw new BidTooLowException(minRequired);
@@ -197,7 +197,7 @@ public class BidService {
                 // counters at min(amount + increment, P_max). Proxy emits LAST
                 // so it's the post-resolution top bidder.
                 long counterAmount = Math.min(
-                        amount + BidIncrementTable.minIncrement(amount),
+                        amount + auction.getBidIncrement(),
                         competingProxy.getMaxAmount());
                 emitted.add(insertManual(auction, bidder, amount, ipAddress));
                 emitted.add(insertProxyAuto(auction, competingProxy.getBidder(),

@@ -28,6 +28,11 @@ sub-step.
 | `Bot__Password`                 | yes      | —                                      | secret; never commit                       |
 | `Bot__BotUuid`                  | yes      | —                                      | the account's SL avatar UUID               |
 | `Bot__StartLocation`            | no       | `last`                                 | `last`, `home`, or a region name           |
+| `Bot__OfflineBackoffSeconds`    | no       | `5`                                    | task-loop backoff when the SL session is offline |
+| `Bot__EmptyQueueBackoffSeconds` | no       | `15`                                   | task-loop backoff / poll cadence when the queue is empty |
+| `Bot__HttpTimeoutSeconds`       | no       | `30`                                   | backend HTTP client request timeout        |
+| `Bot__HttpRetryBackoffSeconds__0..N` | no  | `[1,2,4,8,15]`                         | backend HTTP retry backoff ladder (seconds); array length also caps attempts |
+| `Bot__ReconnectBackoffSeconds__0..N` | no  | `[1,2,4,8,15,30,60]`                   | SL reconnection backoff ladder (seconds); last element is the cap |
 | `Backend__BaseUrl`              | no       | `http://localhost:8080`                | backend origin                             |
 | `Backend__SharedSecret`         | yes      | —                                      | matches `slpa.bot.shared-secret`           |
 | `RateLimit__TeleportsPerMinute` | no       | `6`                                    | SL's hard cap                              |

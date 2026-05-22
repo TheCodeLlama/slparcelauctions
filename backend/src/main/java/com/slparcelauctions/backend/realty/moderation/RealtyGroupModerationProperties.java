@@ -6,11 +6,19 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Configuration for the realty-group admin-moderation subsystem (sub-project F).
- * Bound to {@code slpa.realty.*}. See spec §20.2 for the deployable knobs.
+ * Configuration for the realty-group subsystem. Bound to {@code slpa.realty.*}.
+ * See spec §20.2 for the admin-moderation deployable knobs.
  *
- * <p>Three groups of properties, one per scheduled task that this sub-project
- * introduces:
+ * <p>Also carries three non-moderation realty knobs that share the
+ * {@code slpa.realty} prefix: {@code defaultMemberSeatLimit} (the per-group
+ * seat cap stamped on newly created groups), {@code invitationTtlDays} (the
+ * realty-group invitation lifetime), and {@code slGroup.verificationTtlDays}
+ * (the SL-group registration verification-code TTL). They live on this POJO
+ * rather than a second {@code slpa.realty}-prefixed bean because Spring Boot
+ * binds one prefix to one {@code @ConfigurationProperties} type.
+ *
+ * <p>Three groups of properties, one per scheduled task that the moderation
+ * sub-project introduces:
  * <ul>
  *   <li>{@code group-bulk-suspend} — controls
  *       {@code BulkSuspendedListingExpiryTask} (Task 13). Listings auto-cancel
@@ -41,6 +49,22 @@ public class RealtyGroupModerationProperties {
     private SlGroupReverify slGroup = new SlGroupReverify();
     private GroupSuspensionExpiry groupSuspensionExpiry = new GroupSuspensionExpiry();
 
+    /**
+     * Default per-group member seat cap stamped on a newly created
+     * {@link com.slparcelauctions.backend.realty.RealtyGroup}. The entity
+     * column stays per-group (an admin can raise an individual group's cap);
+     * this is only the baseline {@code RealtyGroupService.createGroup} applies.
+     */
+    @jakarta.validation.constraints.Min(1)
+    private int defaultMemberSeatLimit = 50;
+
+    /**
+     * Realty-group invitation lifetime before auto-expiry, in days (spec §3.3).
+     * Consumed by {@code RealtyGroupInvitationService}.
+     */
+    @jakarta.validation.constraints.Min(1)
+    private int invitationTtlDays = 7;
+
     @Getter
     @Setter
     public static class GroupBulkSuspend {
@@ -63,6 +87,15 @@ public class RealtyGroupModerationProperties {
          */
         @jakarta.validation.constraints.Min(1)
         private int reverifyBatchSize = Integer.MAX_VALUE;
+
+        /**
+         * SL-group registration verification-code TTL, in days. The code
+         * printed by the founder terminal is valid for this many days before
+         * the pending registration must be re-issued. Consumed by
+         * {@code RealtyGroupSlGroupService}.
+         */
+        @jakarta.validation.constraints.Min(1)
+        private int verificationTtlDays = 7;
 
         private Enabled reverify = new Enabled();
 

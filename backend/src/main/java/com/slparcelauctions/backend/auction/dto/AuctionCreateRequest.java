@@ -31,6 +31,8 @@ public record AuctionCreateRequest(
         @NotNull @Min(1) Long startingBid,
         Long reservePrice,
         Long buyNowPrice,
+        @Min(value = 1, message = "bidIncrement must be at least 1")
+        Long bidIncrement,
         @NotNull Integer durationHours,          // validated to be in {24,48,72,168,336}
         @NotNull Boolean snipeProtect,
         Integer snipeWindowMin,                    // required iff snipeProtect

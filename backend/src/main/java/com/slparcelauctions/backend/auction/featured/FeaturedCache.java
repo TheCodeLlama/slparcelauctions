@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -26,12 +28,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FeaturedCache {
 
-    public static final Duration TTL = Duration.ofSeconds(60);
-
     private final RedisTemplate<String, Object> redis;
+    private final Duration ttl;
 
-    public FeaturedCache(@Qualifier("epic07RedisTemplate") RedisTemplate<String, Object> redis) {
+    public FeaturedCache(
+            @Qualifier("epic07RedisTemplate") RedisTemplate<String, Object> redis,
+            AuctionConfigProperties config) {
         this.redis = redis;
+        this.ttl = config.featuredCacheTtl();
     }
 
     public FeaturedResponse getOrCompute(FeaturedCategory category,
@@ -50,7 +54,7 @@ public class FeaturedCache {
         log.debug("Featured cache MISS: {}", category);
         FeaturedResponse computed = compute.get();
         try {
-            redis.opsForValue().set(category.cacheKey(), computed, TTL);
+            redis.opsForValue().set(category.cacheKey(), computed, ttl);
         } catch (RuntimeException e) {
             log.warn("Failed to cache featured response for {}: {}",
                     category, e.toString());
@@ -61,7 +65,7 @@ public class FeaturedCache {
     /**
      * Drops the cached entry for {@code category}, forcing the next call
      * to recompute. Used by the admin Featured-toggle path so an admin
-     * write surfaces immediately instead of waiting up to 60s for the TTL.
+     * write surfaces immediately instead of waiting out the TTL.
      * Errors from the Redis client are swallowed and logged — the caller
      * does not need to handle a cache outage; the TTL self-heals.
      */

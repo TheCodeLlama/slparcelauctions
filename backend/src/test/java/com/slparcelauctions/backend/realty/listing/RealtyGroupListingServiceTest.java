@@ -73,7 +73,7 @@ class RealtyGroupListingServiceTest {
                 .build();
 
         req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null, null,
                 168, false, null, null, Set.of(), GROUP_PUBLIC_ID);
     }
 

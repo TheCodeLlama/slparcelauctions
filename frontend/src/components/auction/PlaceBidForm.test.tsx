@@ -49,6 +49,7 @@ function auctionFixture(
     status: "ACTIVE",
     verificationTier: "SCRIPT",
     startingBid: 500,
+    bidIncrement: 100,
     hasReserve: false,
     reserveMet: true,
     buyNowPrice: null,
@@ -453,6 +454,43 @@ describe("PlaceBidForm", () => {
         expect(screen.queryByText(/You're a member of/i)).not.toBeInTheDocument();
       });
       expect(screen.getByTestId("place-bid-form")).toBeInTheDocument();
+    });
+  });
+
+  describe("per-auction bid increment", () => {
+    it("next-minimum-bid hint uses auction.bidIncrement when there is a current bid", () => {
+      // currentHighBid=1500, bidIncrement=200 -> next min = 1700.
+      const auction = auctionFixture({ currentHighBid: 1500, bidIncrement: 200 });
+      renderWithProviders(
+        <PlaceBidForm auction={auction} connectionState={connected} />,
+        { auth: "authenticated" },
+      );
+      expect(screen.getByText(/Minimum bid: L\$1,700/i)).toBeInTheDocument();
+    });
+
+    it("uses startingBid when there is no current bid (first bid)", () => {
+      // currentHighBid=null, startingBid=500, bidIncrement=200 -> next min = 500.
+      const auction = auctionFixture({
+        currentHighBid: null,
+        startingBid: 500,
+        bidIncrement: 200,
+      });
+      renderWithProviders(
+        <PlaceBidForm auction={auction} connectionState={connected} />,
+        { auth: "authenticated" },
+      );
+      expect(screen.getByText(/Minimum bid: L\$500/i)).toBeInTheDocument();
+    });
+
+    it("shows the static increment hint line near the bid input", () => {
+      const auction = auctionFixture({ bidIncrement: 150 });
+      renderWithProviders(
+        <PlaceBidForm auction={auction} connectionState={connected} />,
+        { auth: "authenticated" },
+      );
+      expect(
+        screen.getByTestId("place-bid-increment-hint"),
+      ).toHaveTextContent("Minimum bid increment: L$150");
     });
   });
 });

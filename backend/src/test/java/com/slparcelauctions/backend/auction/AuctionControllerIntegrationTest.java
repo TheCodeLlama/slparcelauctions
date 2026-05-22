@@ -113,7 +113,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_validRequest_returns201AndDraft() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcelUuid, "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, "Nice parcel", null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -138,7 +138,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcelUuid, "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -157,7 +157,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcelUuid, "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -178,7 +178,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcelUuid, "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -192,7 +192,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcelUuid, "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -214,7 +214,7 @@ class AuctionControllerIntegrationTest {
                 Mono.error(new ParcelNotFoundInSlException(unknownUuid)));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                unknownUuid, "Test listing", 1000L, null, null,
+                unknownUuid, "Test listing", 1000L, null, null, null,
                 168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -253,6 +253,26 @@ class AuctionControllerIntegrationTest {
                   "slParcelUuid": "%s",
                   "title": "   ",
                   "startingBid": 1000,
+                  "durationHours": 168,
+                  "snipeProtect": false
+                }
+                """.formatted(sellerParcelUuid);
+        mockMvc.perform(post("/api/v1/auctions")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists());
+    }
+
+    @Test
+    void create_bidIncrementZero_returns400WithProblemDetail() throws Exception {
+        String body = """
+                {
+                  "slParcelUuid": "%s",
+                  "title": "Test listing",
+                  "startingBid": 1000,
+                  "bidIncrement": 0,
                   "durationHours": 168,
                   "snipeProtect": false
                 }
@@ -393,6 +413,7 @@ class AuctionControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.hasReserve").exists())
                 .andExpect(jsonPath("$.reserveMet").exists())
+                .andExpect(jsonPath("$.bidIncrement").value(50))
                 // No seller-only fields leak
                 .andExpect(jsonPath("$.listingFeePaid").doesNotExist())
                 .andExpect(jsonPath("$.commissionRate").doesNotExist())
@@ -481,7 +502,7 @@ class AuctionControllerIntegrationTest {
     void update_onDraft_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2500L, null, null, null, null, null, "updated description", null);
+                null, null, 2500L, null, null, null, null, null, null, "updated description", null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -496,7 +517,7 @@ class AuctionControllerIntegrationTest {
     void update_onActive_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, 2500L, null, null, null, null, null, null, null);
+                null, null, 2500L, null, null, null, null, null, null, null, null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + sellerAccessToken)

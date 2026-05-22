@@ -23,7 +23,10 @@ public record EscrowConfigProperties(
         Duration buyParcelFastCadence,
         Duration buyParcelFastWindow,
         Duration buyParcelSlowCadence,
-        Integer manualVerifyAttempts) {
+        Integer manualVerifyAttempts,
+        Integer transferDeadlineHours,
+        Integer disputeMaxImagesPerSide,
+        Long disputeMaxImageBytes) {
 
     public EscrowConfigProperties {
         if (terminalSharedSecret == null) terminalSharedSecret = "";
@@ -38,5 +41,8 @@ public record EscrowConfigProperties(
         if (buyParcelFastWindow == null) buyParcelFastWindow = Duration.ofHours(1);
         if (buyParcelSlowCadence == null) buyParcelSlowCadence = Duration.ofMinutes(30);
         if (manualVerifyAttempts == null) manualVerifyAttempts = 3;
+        if (transferDeadlineHours == null) transferDeadlineHours = 72;
+        if (disputeMaxImagesPerSide == null) disputeMaxImagesPerSide = 5;
+        if (disputeMaxImageBytes == null) disputeMaxImageBytes = 5L * 1024 * 1024;
     }
 }

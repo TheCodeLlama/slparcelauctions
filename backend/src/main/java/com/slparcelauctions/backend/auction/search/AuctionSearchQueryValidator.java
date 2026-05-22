@@ -2,12 +2,14 @@ package com.slparcelauctions.backend.auction.search;
 
 import org.springframework.stereotype.Component;
 
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
 import com.slparcelauctions.backend.auction.search.exception.DistanceRequiresNearRegionException;
 import com.slparcelauctions.backend.auction.search.exception.InvalidFilterValueException;
 import com.slparcelauctions.backend.auction.search.exception.InvalidRangeException;
 import com.slparcelauctions.backend.auction.search.exception.NearestRequiresNearRegionException;
 import com.slparcelauctions.backend.parcel.MaturityRating;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -22,8 +24,11 @@ import lombok.extern.slf4j.Slf4j;
  * caller's intent is unparsable.
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class AuctionSearchQueryValidator {
+
+    private final AuctionConfigProperties config;
 
     public AuctionSearchQuery validate(AuctionSearchQuery q) {
         if (q.maturity() != null) {
@@ -53,9 +58,9 @@ public class AuctionSearchQueryValidator {
         }
 
         int size = q.size();
-        if (size > AuctionSearchQuery.MAX_SIZE) {
-            log.debug("Clamping size from {} to {}", size, AuctionSearchQuery.MAX_SIZE);
-            size = AuctionSearchQuery.MAX_SIZE;
+        if (size > config.searchMaxPageSize()) {
+            log.debug("Clamping size from {} to {}", size, config.searchMaxPageSize());
+            size = config.searchMaxPageSize();
         }
 
         int page = q.page();
@@ -65,9 +70,9 @@ public class AuctionSearchQueryValidator {
         }
 
         Integer distance = q.distance();
-        if (distance != null && distance > AuctionSearchQuery.MAX_DISTANCE) {
-            log.debug("Clamping distance from {} to {}", distance, AuctionSearchQuery.MAX_DISTANCE);
-            distance = AuctionSearchQuery.MAX_DISTANCE;
+        if (distance != null && distance > config.searchMaxDistance()) {
+            log.debug("Clamping distance from {} to {}", distance, config.searchMaxDistance());
+            distance = config.searchMaxDistance();
         }
 
         return new AuctionSearchQuery(

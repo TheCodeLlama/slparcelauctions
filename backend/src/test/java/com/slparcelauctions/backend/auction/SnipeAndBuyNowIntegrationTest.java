@@ -155,8 +155,9 @@ class SnipeAndBuyNowIntegrationTest {
         reloaded.setEndsAt(OffsetDateTime.now().plusMinutes(9));
         auctionRepository.save(reloaded);
 
-        // Placement 2 â€” inside window, should extend. bidder2 takes over
-        // (avoids seller/self-outbid edge cases; increment L$1000â†’L$100).
+        // Placement 2 - inside window, should extend. bidder2 takes over
+        // (avoids seller/self-outbid edge cases; 1100 clears the per-auction
+        // bid increment over the 1000 starting bid).
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder2AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -177,8 +178,8 @@ class SnipeAndBuyNowIntegrationTest {
         auctionRepository.save(reloaded);
         OffsetDateTime beforeThird = reloaded.getEndsAt();
 
-        // Placement 3 â€” still in window, stacks again. Increment remains
-        // L$100 (currentBid=1100 is still in the L$1000-L$9999 tier).
+        // Placement 3 - still in window, stacks again. The 1200 bid
+        // clears currentBid 1100 plus the per-auction bid increment.
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)

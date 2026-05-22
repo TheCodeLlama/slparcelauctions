@@ -3,8 +3,9 @@ package com.slparcelauctions.backend.auction.exception;
 /**
  * Raised by {@code BidService.placeBid} when the proposed amount is strictly
  * below the required minimum — either the auction's {@code startingBid} (for
- * the first bid) or {@code currentBid + minIncrement(currentBid)} (for every
- * subsequent bid). Mapped to {@code 400 BID_TOO_LOW} by
+ * the first bid) or {@code currentBid + auction.bidIncrement} (for every
+ * subsequent bid), where {@code bidIncrement} is the per-auction column fixed
+ * at create time. Mapped to {@code 400 BID_TOO_LOW} by
  * {@code AuctionExceptionHandler}. The bidder can correct and resubmit, so
  * this is a 400 (bad input), not a 409 (state conflict).
  *

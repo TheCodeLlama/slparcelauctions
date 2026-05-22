@@ -9,6 +9,10 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
  * Validated, normalized query input. The controller parses raw request
  * parameters, the validator checks semantics, then this record is passed
  * to the predicate builder.
+ *
+ * <p>Pagination / distance bounds (max page size, max + default distance,
+ * default page size) are externalized to {@code slpa.auction.*} and read
+ * via {@code AuctionConfigProperties} by the validator and search service.
  */
 public record AuctionSearchQuery(
         String q,                              // nullable free-text query (header search overlay)
@@ -28,9 +32,4 @@ public record AuctionSearchQuery(
         AuctionSearchSort sort,
         int page,
         int size) {
-
-    public static final int MAX_SIZE = 100;
-    public static final int MAX_DISTANCE = 50;
-    public static final int DEFAULT_DISTANCE = 10;
-    public static final int DEFAULT_SIZE = 24;
 }

@@ -7,17 +7,26 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.slparcelauctions.backend.auction.AuctionConfigPropertiesFixture;
 
 @ExtendWith(MockitoExtension.class)
 class SearchSuggestServiceTest {
 
     @Mock SearchSuggestRepository repo;
-    @InjectMocks SearchSuggestService service;
+    private SearchSuggestService service;
+
+    @BeforeEach
+    void setUp() {
+        // Real config fixture (production-default suggest caps) rather than a
+        // mock - the limits are arguments to the repo stubs in each test.
+        service = new SearchSuggestService(repo, AuctionConfigPropertiesFixture.defaults());
+    }
 
     @Test
     void capsListingsAt5_andRegionsAt3() {

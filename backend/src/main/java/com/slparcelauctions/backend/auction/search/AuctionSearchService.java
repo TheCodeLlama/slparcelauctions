@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionConfigProperties;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.search.exception.RegionNotFoundException;
@@ -68,6 +69,7 @@ public class AuctionSearchService {
     private final SearchResponseCache cache;
     private final AuctionSearchQueryValidator validator;
     private final RegionRepository regionRepository;
+    private final AuctionConfigProperties config;
 
     @Transactional(readOnly = true)
     public SearchPagedResponse<AuctionSearchResultDto> search(AuctionSearchQuery rawQuery) {
@@ -86,7 +88,7 @@ public class AuctionSearchService {
             double y0 = anchor.getGridY();
             int radius = query.distance() != null
                     ? query.distance()
-                    : AuctionSearchQuery.DEFAULT_DISTANCE;
+                    : config.searchDefaultDistance();
             spec = predicateBuilder.buildWithDistance(query, x0, y0, radius);
             resolvedRegion = new ResolvedRegion(query.nearRegion(), x0, y0);
         } else {

@@ -45,7 +45,9 @@ class RealtyGroupReportRateLimiterTest {
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(FIXED_DATE.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
-        limiter = new RealtyGroupReportRateLimiter(redis, clock);
+        ReportsProperties reportsProperties = new ReportsProperties();
+        reportsProperties.setDailyLimit(5);
+        limiter = new RealtyGroupReportRateLimiter(redis, reportsProperties, clock);
         counter = new AtomicLong();
         lenient().when(redis.opsForValue()).thenReturn(valueOps);
         lenient().when(valueOps.increment(any(String.class)))

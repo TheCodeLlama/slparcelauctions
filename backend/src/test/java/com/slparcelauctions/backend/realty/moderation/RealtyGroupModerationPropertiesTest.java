@@ -49,8 +49,12 @@ class RealtyGroupModerationPropertiesTest {
             assertThat(props.getSlGroup().getReverifyCadenceDays()).isEqualTo(30);
             assertThat(props.getSlGroup().getReverifyFetchFailureThreshold()).isEqualTo(3);
             assertThat(props.getSlGroup().getReverify().isEnabled()).isTrue();
+            assertThat(props.getSlGroup().getVerificationTtlDays()).isEqualTo(7);
 
             assertThat(props.getGroupSuspensionExpiry().isEnabled()).isTrue();
+
+            assertThat(props.getDefaultMemberSeatLimit()).isEqualTo(50);
+            assertThat(props.getInvitationTtlDays()).isEqualTo(7);
         }
     }
 
@@ -75,7 +79,10 @@ class RealtyGroupModerationPropertiesTest {
         "slpa.realty.sl-group.reverify-cadence-days=14",
         "slpa.realty.sl-group.reverify-fetch-failure-threshold=5",
         "slpa.realty.sl-group.reverify.enabled=false",
-        "slpa.realty.group-suspension-expiry.enabled=false"
+        "slpa.realty.sl-group.verification-ttl-days=10",
+        "slpa.realty.group-suspension-expiry.enabled=false",
+        "slpa.realty.default-member-seat-limit=80",
+        "slpa.realty.invitation-ttl-days=14"
     })
     class Overrides {
 
@@ -90,8 +97,12 @@ class RealtyGroupModerationPropertiesTest {
             assertThat(props.getSlGroup().getReverifyCadenceDays()).isEqualTo(14);
             assertThat(props.getSlGroup().getReverifyFetchFailureThreshold()).isEqualTo(5);
             assertThat(props.getSlGroup().getReverify().isEnabled()).isFalse();
+            assertThat(props.getSlGroup().getVerificationTtlDays()).isEqualTo(10);
 
             assertThat(props.getGroupSuspensionExpiry().isEnabled()).isFalse();
+
+            assertThat(props.getDefaultMemberSeatLimit()).isEqualTo(80);
+            assertThat(props.getInvitationTtlDays()).isEqualTo(14);
         }
     }
 }

@@ -188,9 +188,9 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(escrow.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(bidAmount);
         assertThat(escrow.getCommissionAmt())
-                .isEqualTo(commissionCalculator.commission(bidAmount));
+                .isEqualTo(commissionCalculator.commission(bidAmount, new java.math.BigDecimal("0.0500")));
         assertThat(escrow.getPayoutAmt())
-                .isEqualTo(commissionCalculator.payout(bidAmount));
+                .isEqualTo(commissionCalculator.payout(bidAmount, new java.math.BigDecimal("0.0500")));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
         assertThat(escrow.getFundedAt()).isNotNull();
         // transferDeadline = fundedAt + 72h.

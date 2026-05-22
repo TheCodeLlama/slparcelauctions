@@ -40,6 +40,12 @@ class RealtyGroupServiceCreateTest {
     @Mock com.slparcelauctions.backend.notification.NotificationPublisher notifications;
     @Mock com.slparcelauctions.backend.user.UserRepository users;
     @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
+    // Spy a real properties instance so createGroup stamps the externalized
+    // default-member-seat-limit (50); @InjectMocks injects @Spy fields by type.
+    @org.mockito.Spy
+    com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties
+            realtyProperties =
+            new com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties();
 
     @InjectMocks RealtyGroupService service;
 

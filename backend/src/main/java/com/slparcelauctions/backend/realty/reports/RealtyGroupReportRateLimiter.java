@@ -22,8 +22,9 @@ import lombok.RequiredArgsConstructor;
  * <ol>
  *   <li>{@code INCR} the day's key. On the first hit ({@code count == 1L}) set a
  *       1-day TTL so the bucket auto-resets at the next UTC day boundary.</li>
- *   <li>If the new count exceeds {@link #DAILY_LIMIT}, throw
- *       {@link ReportRateLimitedException} (mapped to 429 by the controller layer).</li>
+ *   <li>If the new count exceeds the configured daily limit
+ *       ({@code slpa.reports.daily-limit}), throw {@link ReportRateLimitedException}
+ *       (mapped to 429 by the controller layer).</li>
  * </ol>
  *
  * <p>Counting is increment-first so a denied request still consumes the slot — this
@@ -38,9 +39,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RealtyGroupReportRateLimiter {
 
-    /** Shared daily cap across listing + realty-group reports per spec §12.1. */
-    static final int DAILY_LIMIT = 5;
-
     /**
      * Redis key prefix. Intentionally shared with the listing-report path so the
      * quota is total across both entity types — see class javadoc.
@@ -48,16 +46,18 @@ public class RealtyGroupReportRateLimiter {
     static final String KEY_PREFIX = "report_rl:";
 
     private final StringRedisTemplate redis;
+    private final ReportsProperties reportsProperties;
     private final Clock clock;
 
     /**
      * Increments the reporter's daily counter and throws if the new count exceeds the
-     * shared {@link #DAILY_LIMIT}. Safe to call before doing any DB work — over-limit
-     * requests short-circuit before the transaction opens.
+     * shared daily limit ({@code slpa.reports.daily-limit}). Safe to call before doing
+     * any DB work — over-limit requests short-circuit before the transaction opens.
      *
      * @throws ReportRateLimitedException when the reporter has exhausted today's quota
      */
     public void checkAndIncrement(Long reporterId) {
+        int dailyLimit = reportsProperties.getDailyLimit();
         String date = LocalDate.now(clock).toString();
         String key = KEY_PREFIX + reporterId + ":" + date;
         Long count = redis.opsForValue().increment(key);
@@ -67,8 +67,8 @@ public class RealtyGroupReportRateLimiter {
             // effectively dead anyway, the EXPIRE is just a cleanup hint.
             redis.expire(key, Duration.ofDays(1));
         }
-        if (count != null && count > DAILY_LIMIT) {
-            throw new ReportRateLimitedException(DAILY_LIMIT);
+        if (count != null && count > dailyLimit) {
+            throw new ReportRateLimitedException(dailyLimit);
         }
     }
 }

@@ -36,6 +36,7 @@ function publicAuctionFixture(
     status: "ACTIVE",
     verificationTier: "SCRIPT",
     startingBid: 500,
+    bidIncrement: 100,
     hasReserve: false,
     reserveMet: true,
     buyNowPrice: null,

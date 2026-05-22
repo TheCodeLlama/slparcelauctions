@@ -12,19 +12,16 @@ namespace Slpa.Bot.Sl;
 ///
 /// The login loop watches <see cref="NetworkManager.LoginProgress"/> and
 /// <see cref="NetworkManager.Disconnected"/> to drive state transitions.
-/// On disconnect, auto-reconnect with exponential backoff (1s, 2s, 4s, 8s…
-/// capped at 60s) until the cancellation token fires.
+/// On disconnect, auto-reconnect with the configured exponential backoff
+/// ladder (<see cref="BotOptions.ReconnectBackoffSeconds"/>, default
+/// 1s, 2s, 4s, 8s, 15s, 30s, 60s) until the cancellation token fires.
 /// </summary>
 public sealed class LibreMetaverseBotSession : IBotSession
 {
-    private static readonly TimeSpan[] ReconnectBackoff =
-        new[] { 1, 2, 4, 8, 15, 30, 60 }
-            .Select(s => TimeSpan.FromSeconds(s))
-            .ToArray();
-
     private const string LoginUri =
         "https://login.agni.lindenlab.com/cgi-bin/login.cgi";
 
+    private readonly TimeSpan[] _reconnectBackoff;
     private readonly BotOptions _opts;
     private readonly ILogger<LibreMetaverseBotSession> _log;
     private readonly GridClient _client;
@@ -43,9 +40,24 @@ public sealed class LibreMetaverseBotSession : IBotSession
         ILogger<LibreMetaverseBotSession> log)
     {
         _opts = opts.Value;
+        _reconnectBackoff = ToBackoffLadder(_opts.ReconnectBackoffSeconds);
         _log = log;
         _client = CreateHeadlessClient();
         _rateLimiter = new TeleportRateLimiter(rateOpts.Value.TeleportsPerMinute);
+    }
+
+    /// <summary>
+    /// Maps a configured seconds ladder to <see cref="TimeSpan"/>s. An
+    /// empty/null array falls back to a single-element <c>[1s]</c> default
+    /// so the reconnect loop always has at least one backoff step.
+    /// </summary>
+    private static TimeSpan[] ToBackoffLadder(int[]? seconds)
+    {
+        if (seconds is null || seconds.Length == 0)
+        {
+            return new[] { TimeSpan.FromSeconds(1) };
+        }
+        return Array.ConvertAll(seconds, s => TimeSpan.FromSeconds(s));
     }
 
     public SessionState State => (SessionState)Volatile.Read(ref _stateValue);
@@ -138,8 +150,8 @@ public sealed class LibreMetaverseBotSession : IBotSession
             }
             if (!loggedIn)
             {
-                var delay = ReconnectBackoff[
-                    Math.Min(backoffIdx, ReconnectBackoff.Length - 1)];
+                var delay = _reconnectBackoff[
+                    Math.Min(backoffIdx, _reconnectBackoff.Length - 1)];
                 _log.LogWarning("Login failed; retrying in {Delay}", delay);
                 backoffIdx++;
                 try { await Task.Delay(delay, ct).ConfigureAwait(false); }

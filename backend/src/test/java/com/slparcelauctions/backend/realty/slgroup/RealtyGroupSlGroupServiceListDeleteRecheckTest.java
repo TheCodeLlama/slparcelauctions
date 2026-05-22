@@ -43,7 +43,10 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
     private RealtyGroupSlGroupService newService() {
         return new RealtyGroupSlGroupService(
                 repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
-                auctionRepo, clock);
+                auctionRepo,
+                new com.slparcelauctions.backend.realty.moderation
+                        .RealtyGroupModerationProperties(),
+                clock);
     }
 
     private RealtyGroup groupWithId(Long id, UUID publicId) {

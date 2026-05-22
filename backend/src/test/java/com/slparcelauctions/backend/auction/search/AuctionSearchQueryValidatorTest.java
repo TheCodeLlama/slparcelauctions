@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import com.slparcelauctions.backend.auction.AuctionConfigPropertiesFixture;
 import com.slparcelauctions.backend.auction.search.exception.DistanceRequiresNearRegionException;
 import com.slparcelauctions.backend.auction.search.exception.InvalidFilterValueException;
 import com.slparcelauctions.backend.auction.search.exception.InvalidRangeException;
@@ -14,7 +15,8 @@ import com.slparcelauctions.backend.auction.search.exception.NearestRequiresNear
 
 class AuctionSearchQueryValidatorTest {
 
-    private final AuctionSearchQueryValidator validator = new AuctionSearchQueryValidator();
+    private final AuctionSearchQueryValidator validator =
+            new AuctionSearchQueryValidator(AuctionConfigPropertiesFixture.defaults());
 
     @Test
     void validates_and_passesThroughValidQuery() {

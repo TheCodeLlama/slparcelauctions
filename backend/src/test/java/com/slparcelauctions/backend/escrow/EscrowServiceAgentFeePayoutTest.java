@@ -169,7 +169,7 @@ class EscrowServiceAgentFeePayoutTest {
         Escrow escrow = escrowRepo.findByAuctionId(auction.getId()).orElseThrow();
         assertThat(escrow.getPayoutAmt()).isZero();
         // commission is unaffected
-        assertThat(escrow.getCommissionAmt()).isEqualTo(commissionCalculator.commission(finalBid));
+        assertThat(escrow.getCommissionAmt()).isEqualTo(commissionCalculator.commission(finalBid, new java.math.BigDecimal("0.0500")));
         assertThat(escrow.getFinalBidAmount()).isEqualTo(finalBid);
     }
 

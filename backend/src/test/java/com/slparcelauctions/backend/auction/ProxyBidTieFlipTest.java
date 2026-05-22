@@ -132,7 +132,9 @@ class ProxyBidTieFlipTest {
 
         // Step 2 â€” B places a manual bid at exactly 1000 (== A.proxy.max).
         // Strict-> semantics: proxy is NOT exhausted; counter fires.
-        // counterAmount = min(1000 + 100, 1000) = 1000. Both rows emitted.
+        // counterAmount = min(1000 + 50, 1000) = 1000 (capped at P_max,
+        // so the L$50 per-auction bidIncrement does not change the result).
+        // Both rows emitted.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
