@@ -266,7 +266,7 @@ class AuctionControllerIntegrationTest {
     }
 
     @Test
-    void create_bidIncrementZero_returns400() throws Exception {
+    void create_bidIncrementZero_returns400WithProblemDetail() throws Exception {
         String body = """
                 {
                   "slParcelUuid": "%s",
@@ -281,7 +281,8 @@ class AuctionControllerIntegrationTest {
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists());
     }
 
     @Test

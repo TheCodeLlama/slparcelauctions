@@ -463,7 +463,7 @@ class AuctionServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void create_nullBidIncrement_usessuggesterForStartingBid() {
+    void create_nullBidIncrement_usesSuggesterForStartingBid() {
         // startingBid = 5000 falls in tier [1000, 10000) -> suggested increment = 100
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 5000L, null, null, null,
@@ -475,7 +475,7 @@ class AuctionServiceTest {
     }
 
     @Test
-    void create_explicitBidIncrement_overridessuggester() {
+    void create_explicitBidIncrement_overridesSuggester() {
         // Explicit increment = 250 even though suggester would give 100 for startingBid = 5000
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 5000L, null, null, 250L,
