@@ -56,7 +56,7 @@ import lombok.extern.slf4j.Slf4j;
  * runs. This guarantees that two concurrent bids on the same auction are
  * strictly serialised at the database layer — the loser reads the
  * committed {@code currentBid} after the winner's commit lands, which
- * pushes the amount below {@code currentBid + minIncrement} and trips
+ * pushes the amount below {@code currentBid + auction.bidIncrement} and trips
  * {@link BidTooLowException}. The pin test for this guarantee lives in
  * {@code BidBidRaceTest}.
  *

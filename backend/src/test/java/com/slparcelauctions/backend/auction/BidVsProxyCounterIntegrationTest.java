@@ -153,7 +153,7 @@ class BidVsProxyCounterIntegrationTest {
                 .andExpect(status().isCreated());
 
         Auction afterCounter = auctionRepository.findById(a.getId()).orElseThrow();
-        // Counter amount: min(550 + minIncrement(550)=50, 1000) = 600.
+        // Counter amount: min(550 + 50, 1000) = 600. (bidIncrement = 50)
         assertThat(afterCounter.getCurrentBid()).isEqualTo(600L);
         assertThat(afterCounter.getCurrentBidderId()).isEqualTo(aId);
         assertThat(afterCounter.getBidCount()).isEqualTo(3);
@@ -275,6 +275,7 @@ class BidVsProxyCounterIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
+                .bidIncrement(50L)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(sellerParcelUuid)

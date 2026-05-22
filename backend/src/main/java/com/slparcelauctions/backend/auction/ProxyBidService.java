@@ -99,7 +99,7 @@ public class ProxyBidService {
         }
 
         // Step 4 — minimum-bid gate. Matches BidService: first bid must clear
-        // startingBid, subsequent bids must clear currentBid + minIncrement.
+        // startingBid, subsequent bids must clear currentBid + auction.bidIncrement.
         long minRequired = minRequiredForNextBid(auction);
         if (maxAmount < minRequired) {
             throw new BidTooLowException(minRequired);
