@@ -16,7 +16,7 @@ import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
 import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
@@ -72,7 +72,12 @@ export function ListingSummaryRow({
   className,
 }: ListingSummaryRowProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
-  const thumb = apiUrl(auction.photos[0]?.url ?? auction.parcel.snapshotUrl);
+  // Thumbnail fallback chain: first photo (theme-aware when it is the
+  // sort-0 default-cover row carrying both variants) -> parcel snapshot
+  // (single image) -> generic building icon.
+  const firstPhoto = auction.photos[0];
+  const thumbLight = firstPhoto?.lightUrl ?? auction.parcel.snapshotUrl ?? null;
+  const thumbDark = firstPhoto?.darkUrl ?? null;
   // Seller-authored title is the primary row label. Parcel name +
   // region fall through as the secondary line (spec §6.3 post sub-spec 2).
   // Legacy rows with no title fall back to parcel.description so pre-
@@ -104,7 +109,7 @@ export function ListingSummaryRow({
       data-testid={`listing-row-${auction.publicId}`}
     >
       <div className="flex items-start gap-3">
-        <Thumbnail src={thumb} alt="" />
+        <Thumbnail lightSrc={thumbLight} darkSrc={thumbDark} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3
@@ -161,13 +166,21 @@ export function ListingSummaryRow({
   );
 }
 
-function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
+function Thumbnail({
+  lightSrc,
+  darkSrc,
+  alt,
+}: {
+  lightSrc: string | null;
+  darkSrc: string | null;
+  alt: string;
+}) {
   const box = "size-14 shrink-0 rounded-lg";
-  if (src) {
+  if (lightSrc || darkSrc) {
     return (
-      /* eslint-disable-next-line @next/next/no-img-element -- MinIO-served bytes */
-      <img
-        src={src}
+      <ThemedImage
+        lightSrc={lightSrc}
+        darkSrc={darkSrc}
         alt={alt}
         className={cn(box, "object-cover")}
       />

@@ -6,7 +6,7 @@ import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { cn } from "@/lib/cn";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 import type { PublicAuctionResponse } from "@/types/auction";
 import { useActiveListings } from "@/hooks/useActiveListings";
 
@@ -96,7 +96,11 @@ export function ActiveListingsSection({
 function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
   const parcelLabel =
     auction.parcel.description?.trim() || "(unnamed parcel)";
-  const thumb = apiUrl(auction.photos[0]?.url ?? auction.parcel.snapshotUrl);
+  // First photo is theme-aware when it is the sort-0 default-cover row
+  // carrying both variants; parcel snapshot is single-image.
+  const firstPhoto = auction.photos[0];
+  const thumbLight = firstPhoto?.lightUrl ?? auction.parcel.snapshotUrl ?? null;
+  const thumbDark = firstPhoto?.darkUrl ?? null;
   const highBid = numericHighBid(auction.currentHighBid);
   const endsAtDate = parseDate(auction.endsAt);
 
@@ -106,7 +110,7 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
         href={`/auction/${auction.publicId}`}
         className="flex flex-col gap-2 p-3 hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
       >
-        <Thumbnail src={thumb} alt="" />
+        <Thumbnail lightSrc={thumbLight} darkSrc={thumbDark} alt="" />
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-fg truncate">
             {parcelLabel}
@@ -140,12 +144,24 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
   );
 }
 
-function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
+function Thumbnail({
+  lightSrc,
+  darkSrc,
+  alt,
+}: {
+  lightSrc: string | null;
+  darkSrc: string | null;
+  alt: string;
+}) {
   const box = "aspect-video w-full rounded-lg";
-  if (src) {
+  if (lightSrc || darkSrc) {
     return (
-      /* eslint-disable-next-line @next/next/no-img-element -- snapshot / MinIO-served bytes */
-      <img src={src} alt={alt} className={cn(box, "object-cover")} />
+      <ThemedImage
+        lightSrc={lightSrc}
+        darkSrc={darkSrc}
+        alt={alt}
+        className={cn(box, "object-cover")}
+      />
     );
   }
   return (
