@@ -25,9 +25,10 @@ builder.Services.AddSingleton<IIdleParker, IdleParker>();
 builder.Services.AddSingleton<BotActivityState>();
 builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =>
 {
-    var opts = sp.GetRequiredService<IOptions<BackendOptions>>().Value;
-    client.BaseAddress = new Uri(opts.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(30);
+    var backendOpts = sp.GetRequiredService<IOptions<BackendOptions>>().Value;
+    var botOpts = sp.GetRequiredService<IOptions<BotOptions>>().Value;
+    client.BaseAddress = new Uri(backendOpts.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(botOpts.HttpTimeoutSeconds);
 });
 builder.Services.AddSingleton<WithdrawGroupHandler>();
 builder.Services.AddSingleton<VerifySellToHandler>();

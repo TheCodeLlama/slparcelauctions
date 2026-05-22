@@ -18,15 +18,6 @@ namespace Slpa.Bot.Backend;
 /// </summary>
 public sealed class HttpBackendClient : IBackendClient
 {
-    private static readonly TimeSpan[] RetryBackoff =
-    {
-        TimeSpan.FromSeconds(1),
-        TimeSpan.FromSeconds(2),
-        TimeSpan.FromSeconds(4),
-        TimeSpan.FromSeconds(8),
-        TimeSpan.FromSeconds(15)
-    };
-
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
@@ -35,18 +26,35 @@ public sealed class HttpBackendClient : IBackendClient
 
     private readonly HttpClient _http;
     private readonly BackendOptions _opts;
+    private readonly TimeSpan[] _retryBackoff;
     private readonly ILogger<HttpBackendClient> _log;
 
     public HttpBackendClient(
         HttpClient http,
         IOptions<BackendOptions> opts,
+        IOptions<BotOptions> botOpts,
         ILogger<HttpBackendClient> log)
     {
         _http = http;
         _opts = opts.Value;
+        _retryBackoff = ToBackoffLadder(botOpts.Value.HttpRetryBackoffSeconds);
         _log = log;
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _opts.SharedSecret);
+    }
+
+    /// <summary>
+    /// Maps a configured seconds ladder to <see cref="TimeSpan"/>s. An
+    /// empty/null array falls back to a single-element <c>[1s]</c> default
+    /// so the retry loop always has at least one attempt.
+    /// </summary>
+    private static TimeSpan[] ToBackoffLadder(int[]? seconds)
+    {
+        if (seconds is null || seconds.Length == 0)
+        {
+            return new[] { TimeSpan.FromSeconds(1) };
+        }
+        return Array.ConvertAll(seconds, s => TimeSpan.FromSeconds(s));
     }
 
     public async Task<BotTaskResponse?> ClaimAsync(Guid botUuid, CancellationToken ct)
@@ -115,7 +123,7 @@ public sealed class HttpBackendClient : IBackendClient
         Func<HttpRequestMessage> requestFactory, CancellationToken ct)
     {
         Exception? lastException = null;
-        for (var attempt = 0; attempt < RetryBackoff.Length; attempt++)
+        for (var attempt = 0; attempt < _retryBackoff.Length; attempt++)
         {
             HttpRequestMessage request = requestFactory();
             try
@@ -131,24 +139,24 @@ public sealed class HttpBackendClient : IBackendClient
                     lastException = new HttpRequestException(
                         $"Server error {(int)resp.StatusCode}");
                     resp.Dispose();
-                    if (attempt < RetryBackoff.Length - 1)
+                    if (attempt < _retryBackoff.Length - 1)
                     {
                         _log.LogWarning(
                             "HTTP {Code}; retry {Attempt} after {Delay}",
-                            (int)resp.StatusCode, attempt + 1, RetryBackoff[attempt]);
-                        await Task.Delay(RetryBackoff[attempt], ct).ConfigureAwait(false);
+                            (int)resp.StatusCode, attempt + 1, _retryBackoff[attempt]);
+                        await Task.Delay(_retryBackoff[attempt], ct).ConfigureAwait(false);
                         continue;
                     }
                 }
                 return resp;
             }
-            catch (HttpRequestException ex) when (attempt < RetryBackoff.Length - 1)
+            catch (HttpRequestException ex) when (attempt < _retryBackoff.Length - 1)
             {
                 lastException = ex;
                 _log.LogWarning(ex,
                     "Network error; retry {Attempt} after {Delay}",
-                    attempt + 1, RetryBackoff[attempt]);
-                await Task.Delay(RetryBackoff[attempt], ct).ConfigureAwait(false);
+                    attempt + 1, _retryBackoff[attempt]);
+                await Task.Delay(_retryBackoff[attempt], ct).ConfigureAwait(false);
             }
         }
         throw lastException ?? new HttpRequestException(

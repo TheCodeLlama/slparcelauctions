@@ -25,7 +25,9 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
             BaseUrl = _server.Url!,
             SharedSecret = "test-secret-xxxxxxxx"
         });
-        _client = new HttpBackendClient(http, opts, NullLogger<HttpBackendClient>.Instance);
+        var botOpts = Microsoft.Extensions.Options.Options.Create(new BotOptions());
+        _client = new HttpBackendClient(
+            http, opts, botOpts, NullLogger<HttpBackendClient>.Instance);
         return Task.CompletedTask;
     }
 
