@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.auction;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 
 import org.springframework.stereotype.Service;
@@ -32,6 +31,7 @@ public class ParcelSnapshotPhotoService {
     private final WebClient.Builder webClientBuilder;
     private final AuctionPhotoRepository photoRepo;
     private final ObjectStorageService storage;
+    private final AuctionConfigProperties config;
 
     @Transactional
     public void refreshFor(Auction auction, String slSnapshotUrl) {
@@ -46,7 +46,7 @@ public class ParcelSnapshotPhotoService {
                     .uri(slSnapshotUrl)
                     .retrieve()
                     .bodyToMono(byte[].class)
-                    .timeout(Duration.ofSeconds(5))
+                    .timeout(config.snapshotFetchTimeout())
                     .block();
         } catch (Exception e) {
             log.info("SL snapshot fetch failed for auction {}: {}", auction.getId(), e.getMessage());

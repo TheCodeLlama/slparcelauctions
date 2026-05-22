@@ -3,30 +3,47 @@ package com.slparcelauctions.backend.escrow.command;
 import java.time.Duration;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 /**
  * Shared retry schedule for terminal commands. Both the transport-failure
  * path in {@link com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherTask}
  * and the terminal-reported-failure path in {@link TerminalCommandService#applyCallback}
  * must use the same curve so failure modes converge on the same stall
- * outcome at attempt 4.
+ * outcome at the final attempt.
+ *
+ * <p>The backoff ladder is config-driven via {@code slpa.escrow.command-retry-backoffs}
+ * (a list of ISO-8601 durations). {@code MAX_ATTEMPTS} is derived as
+ * {@code ladder.size() + 1}: after the last ladder entry is exhausted the
+ * command stalls.
  */
-public final class EscrowRetryPolicy {
+@Component
+public class EscrowRetryPolicy {
 
-    private EscrowRetryPolicy() {}
+    private final List<Duration> backoff;
+    private final int maxAttempts;
 
-    public static final List<Duration> BACKOFF = List.of(
-            Duration.ofMinutes(1),  // after attempt 1 → retry at +1min
-            Duration.ofMinutes(5),  // after attempt 2 → retry at +5min
-            Duration.ofMinutes(15)  // after attempt 3 → retry at +15min
-    );
+    public EscrowRetryPolicy(
+            @Value("${slpa.escrow.command-retry-backoffs}") List<Duration> backoff) {
+        this.backoff = List.copyOf(backoff);
+        this.maxAttempts = backoff.size() + 1;
+    }
 
-    public static final int MAX_ATTEMPTS = BACKOFF.size() + 1;  // = 4; after 4th failure → stall
+    /** Total attempts before a command stalls (ladder size + 1). */
+    public int maxAttempts() {
+        return maxAttempts;
+    }
 
-    public static Duration backoffFor(int attemptCount) {
-        // attemptCount is the number of attempts already made (i.e. the
-        // attempt that just failed). Returns the delay before the next
-        // attempt. Attempt 1 failed → BACKOFF[0] = 1min.
-        int idx = Math.min(attemptCount - 1, BACKOFF.size() - 1);
-        return BACKOFF.get(Math.max(idx, 0));
+    /**
+     * Delay before the next attempt.
+     *
+     * @param attemptCount the number of attempts already made (i.e. the
+     *                      attempt that just failed). Attempt 1 failed
+     *                      returns the first ladder entry.
+     */
+    public Duration backoffFor(int attemptCount) {
+        int idx = Math.min(attemptCount - 1, backoff.size() - 1);
+        return backoff.get(Math.max(idx, 0));
     }
 }

@@ -1,21 +1,25 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Slpa.Bot.Backend;
 using Slpa.Bot.Backend.Models;
+using Slpa.Bot.Options;
 using Slpa.Bot.Sl;
 
 namespace Slpa.Bot.Tasks;
 
 /// <summary>
-/// Main driver. Claim → dispatch to handler → loop. Dual backoff: 5 s when
-/// the session is not Online; 15 s when the queue is empty. Handler
-/// exceptions are logged but never reported back to the backend — the
-/// IN_PROGRESS timeout sweep cleans stalled rows.
+/// Main driver. Claim → dispatch to handler → loop. Dual backoff: the
+/// configured offline backoff when the session is not Online; the
+/// empty-queue backoff when the queue is empty (both from
+/// <see cref="BotOptions"/>). Handler exceptions are logged but never
+/// reported back to the backend — the IN_PROGRESS timeout sweep cleans
+/// stalled rows.
 /// </summary>
 public sealed class TaskLoop : BackgroundService
 {
-    private static readonly TimeSpan OfflineBackoff = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan EmptyQueueBackoff = TimeSpan.FromSeconds(15);
+    private readonly TimeSpan _offlineBackoff;
+    private readonly TimeSpan _emptyQueueBackoff;
 
     private readonly IBotSession _session;
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
@@ -34,11 +38,12 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         IIdleParker idleParker,
         BotActivityState activity,
+        IOptions<BotOptions> botOpts,
         WithdrawGroupHandler withdrawGroup,
         VerifySellToHandler verifySellTo,
         VerifyBuyOwnerHandler verifyBuyOwner,
         ILogger<TaskLoop> log)
-        : this(session, backend, idleParker, activity,
+        : this(session, backend, idleParker, activity, botOpts.Value,
             () => withdrawGroup, () => verifySellTo, () => verifyBuyOwner, log)
     {
     }
@@ -52,6 +57,7 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         IIdleParker idleParker,
         BotActivityState activity,
+        BotOptions botOpts,
         Func<WithdrawGroupHandler> withdrawGroup,
         Func<VerifySellToHandler> verifySellTo,
         Func<VerifyBuyOwnerHandler> verifyBuyOwner,
@@ -61,6 +67,8 @@ public sealed class TaskLoop : BackgroundService
         _backend = backend;
         _idleParker = idleParker;
         _activity = activity;
+        _offlineBackoff = TimeSpan.FromSeconds(botOpts.OfflineBackoffSeconds);
+        _emptyQueueBackoff = TimeSpan.FromSeconds(botOpts.EmptyQueueBackoffSeconds);
         _withdrawGroup = withdrawGroup;
         _verifySellTo = verifySellTo;
         _verifyBuyOwner = verifyBuyOwner;
@@ -84,7 +92,7 @@ public sealed class TaskLoop : BackgroundService
         {
             if (_session.State != SessionState.Online)
             {
-                await SafeDelayAsync(OfflineBackoff, ct).ConfigureAwait(false);
+                await SafeDelayAsync(_offlineBackoff, ct).ConfigureAwait(false);
                 continue;
             }
 
@@ -105,7 +113,7 @@ public sealed class TaskLoop : BackgroundService
             catch (Exception ex)
             {
                 _log.LogWarning(ex, "Claim failed; backing off");
-                await SafeDelayAsync(OfflineBackoff, ct).ConfigureAwait(false);
+                await SafeDelayAsync(_offlineBackoff, ct).ConfigureAwait(false);
                 continue;
             }
 
@@ -121,7 +129,7 @@ public sealed class TaskLoop : BackgroundService
                 {
                     return;
                 }
-                await SafeDelayAsync(EmptyQueueBackoff, ct).ConfigureAwait(false);
+                await SafeDelayAsync(_emptyQueueBackoff, ct).ConfigureAwait(false);
                 continue;
             }
 

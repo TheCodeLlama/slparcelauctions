@@ -94,6 +94,8 @@ class EscrowConfirmSellToTest {
                 terminalRepo, terminalCommandService, notificationPublisher,
                 evidenceUploadService, walletService, props, manualReviewRepo,
                 sellToBotTaskFactory, realtyGroupRepo);
+        org.mockito.Mockito.lenient()
+                .when(props.transferDeadlineHours()).thenReturn(72);
         txTemplate = new TransactionTemplate(new FakeTxManager());
     }
 

@@ -75,7 +75,10 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
                 repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
-                auctionRepo, clock);
+                auctionRepo,
+                new com.slparcelauctions.backend.realty.moderation
+                        .RealtyGroupModerationProperties(),
+                clock);
 
         RealtyGroupSlGroup result = svc.register(callerId, groupPublic, slGroupUuid);
 
@@ -101,7 +104,10 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
                 repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
-                auctionRepo, clock);
+                auctionRepo,
+                new com.slparcelauctions.backend.realty.moderation
+                        .RealtyGroupModerationProperties(),
+                clock);
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(RealtyGroupSuspendedException.class);
@@ -125,7 +131,10 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
                 repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
-                auctionRepo, clock);
+                auctionRepo,
+                new com.slparcelauctions.backend.realty.moderation
+                        .RealtyGroupModerationProperties(),
+                clock);
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(SlGroupAlreadyRegisteredException.class);
@@ -151,7 +160,10 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
                 repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
-                auctionRepo, clock);
+                auctionRepo,
+                new com.slparcelauctions.backend.realty.moderation
+                        .RealtyGroupModerationProperties(),
+                clock);
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(SlGroupRegisteredToSuspendedGroupException.class);

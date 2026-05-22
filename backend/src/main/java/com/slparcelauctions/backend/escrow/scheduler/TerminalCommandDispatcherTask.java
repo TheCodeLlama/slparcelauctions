@@ -59,6 +59,7 @@ public class TerminalCommandDispatcherTask {
     private final TerminalHttpClient terminalHttp;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final EscrowConfigProperties props;
+    private final EscrowRetryPolicy retryPolicy;
     private final WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final Clock clock;
 
@@ -117,7 +118,7 @@ public class TerminalCommandDispatcherTask {
         if (result.ack()) {
             log.info("Dispatched command {} to terminal {}: attempt {}/{}",
                     cmd.getId(), cmd.getTerminalId(), cmd.getAttemptCount(),
-                    EscrowRetryPolicy.MAX_ATTEMPTS);
+                    retryPolicy.maxAttempts());
             // Leave IN_FLIGHT awaiting callback. Staleness sweep requeues
             // if the terminal never calls back within commandInFlightTimeout.
             return;
@@ -126,7 +127,7 @@ public class TerminalCommandDispatcherTask {
         // Transport failure — record backoff or stall.
         cmd.setStatus(TerminalCommandStatus.FAILED);
         cmd.setLastError(result.errorMessage());
-        if (cmd.getAttemptCount() >= EscrowRetryPolicy.MAX_ATTEMPTS) {
+        if (cmd.getAttemptCount() >= retryPolicy.maxAttempts()) {
             cmd.setRequiresManualReview(true);
             cmd = cmdRepo.save(cmd);
             // Mirror the terminal-reported-failure ledger pattern: every
@@ -159,10 +160,10 @@ public class TerminalCommandDispatcherTask {
                     cmd.getId(), cmd.getAttemptCount(), result.errorMessage());
         } else {
             cmd.setNextAttemptAt(now.plus(
-                    EscrowRetryPolicy.backoffFor(cmd.getAttemptCount())));
+                    retryPolicy.backoffFor(cmd.getAttemptCount())));
             cmdRepo.save(cmd);
             log.warn("Terminal POST failed for command {}: attempt {}/{}, nextAttemptAt={}, err={}",
-                    cmd.getId(), cmd.getAttemptCount(), EscrowRetryPolicy.MAX_ATTEMPTS,
+                    cmd.getId(), cmd.getAttemptCount(), retryPolicy.maxAttempts(),
                     cmd.getNextAttemptAt(), result.errorMessage());
         }
     }
@@ -193,7 +194,7 @@ public class TerminalCommandDispatcherTask {
         // forever via this method, never stalling and never refunding the user.
         // Mirror the transport-stall behavior: at the cap, stall + refund
         // wallet withdrawals + log; below the cap, requeue for immediate retry.
-        if (cmd.getAttemptCount() >= EscrowRetryPolicy.MAX_ATTEMPTS) {
+        if (cmd.getAttemptCount() >= retryPolicy.maxAttempts()) {
             cmd.setStatus(TerminalCommandStatus.FAILED);
             cmd.setRequiresManualReview(true);
             cmdRepo.save(cmd);

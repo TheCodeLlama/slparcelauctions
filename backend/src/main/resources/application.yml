@@ -116,10 +116,64 @@ slpa:
     timeout-ms: 10000
     retry-attempts: 3
     retry-backoff-ms: 500
+  auction:
+    # Saved-auctions per-user cap. SavedAuctionService enforces it under a
+    # per-user advisory lock so concurrent saves can't race past the ceiling.
+    saved-auctions-cap: 500
+    # /auctions/search pagination + distance bounds. search-default-page-size
+    # mirrors the @RequestParam(defaultValue) literal on the search/saved
+    # controllers (which must stay a compile-time constant) - keep the two
+    # aligned. search-max-page-size / search-max-distance are the validator's
+    # clamp ceilings; search-default-distance is the radius used when
+    # near_region is supplied without an explicit distance.
+    search-max-page-size: 100
+    search-max-distance: 50
+    search-default-distance: 10
+    search-default-page-size: 24
+    # Seller cancellation-history page-size clamp (CancellationStatusService).
+    cancellation-status-max-page: 50
+    # Default page size for the bidder dashboard My Bids endpoint.
+    my-bids-default-page-size: 20
+    # Suggest / typeahead row caps (SearchSuggestService). The near_region
+    # autocomplete listbox draws from the full regions table so it gets a
+    # larger cap than the header-overlay region group.
+    search-suggest-listings-limit: 5
+    search-suggest-regions-limit: 3
+    search-suggest-resolvable-regions-limit: 10
+    # WebClient timeout for the best-effort SL parcel-snapshot image fetch.
+    snapshot-fetch-timeout: PT5S
+    # Read-through cache TTLs for the featured rows and /auctions/search.
+    # search-cache-ttl MUST stay aligned with the 30s Cache-Control max-age
+    # the search controller emits - change both together.
+    featured-cache-ttl: PT60S
+    search-cache-ttl: PT30S
+  ratelimit:
+    # bucket4j Redis-backed rate limiters fronting /auctions/search and the
+    # suggest/typeahead endpoint. capacity is the per-IP burst; refill is the
+    # ISO-8601 window the bucket greedily refills over.
+    search:
+      capacity: 60
+      refill: PT1M
+    suggest:
+      capacity: 300
+      refill: PT1M
+    # TTL on the rate-limit bucket keys in Redis. Comfortably longer than the
+    # refill window so idle keys evict promptly without truncating a refill.
+    cache-ttl: PT10M
+  wallet:
+    # In-memory rate limit on the per-user ledger CSV export endpoint.
+    ledger-export-rate-limit: PT60S
+    # Page-size clamp on GET /me/wallet/ledger.
+    ledger-max-page-size: 100
   listing-fee:
     amount-lindens: 100
   commission:
     default-rate: 0.05
+    # Minimum commission charged on any sale, in L$. Auctions closing below
+    # L$1,000 hit this floor and pay a disproportionate commission - intentional
+    # per DESIGN.md to discourage micro-auctions. The rate above is snapshotted
+    # per-auction (coupons may lower it); this floor is global.
+    minimum-lindens: 50
   cancellation:
     # Epic 08 sub-spec 2 §2 — cancellation-penalty ladder. Applied only when
     # an ACTIVE auction with at least one bid is cancelled. Walking the ladder
@@ -172,6 +226,18 @@ slpa:
     buy-parcel-fast-window: PT1H
     buy-parcel-slow-cadence: PT30M
     manual-verify-attempts: 3
+    # Window a winning buyer has to complete the in-world parcel transfer
+    # after auction end. Re-stamped fresh when Set-Sell-To is confirmed so the
+    # Buy-Parcel sub-step gets the full window. A core escrow SLA.
+    transfer-deadline-hours: 72
+    # Backoff ladder for terminal-command retries. After the last entry is
+    # exhausted the command stalls for manual review (max attempts = size + 1).
+    # Both the transport-failure and terminal-reported-failure paths share it.
+    command-retry-backoffs: PT1M,PT5M,PT15M
+    # Escrow dispute evidence upload caps, per side (winner / seller). Mirrors
+    # the support-ticket attachment caps. dispute-max-image-bytes is 5 MiB.
+    dispute-max-images-per-side: 5
+    dispute-max-image-bytes: 5242880
     # --- Scheduled job cadences (Tasks 6/7/8/9 wire the actual jobs) ---
     timeout-job:
       enabled: true
@@ -224,8 +290,19 @@ slpa:
       reverify-fetch-failure-threshold: 3
       reverify:
         enabled: true
+      # SL-group registration verification-code TTL. The code printed by the
+      # founder terminal is valid for this many days before the pending
+      # registration must be re-issued (RealtyGroupSlGroupService).
+      verification-ttl-days: 7
     group-suspension-expiry:
       enabled: true
+    # Default per-group member seat cap stamped on a newly created RealtyGroup.
+    # The column itself stays per-group (an admin can raise an individual
+    # group's cap); this is only the baseline applied at group-creation time.
+    default-member-seat-limit: 50
+    # Realty-group invitation lifetime before auto-expiry, in days
+    # (RealtyGroupInvitationService, spec §3.3).
+    invitation-ttl-days: 7
     # Sub-project H section 6 -- per-call ceiling on member-initiated deposits into a
     # realty group's wallet (app flow + in-world flow). Fat-finger protection only;
     # the depositor's personal balance and walking-around L$ are the natural caps.
@@ -237,6 +314,21 @@ slpa:
     # ReportsProperties (slpa.reports.*). One-shot per cycle: re-arms when the
     # open count returns to zero. Default 3; minimum 1.
     group-alert-threshold: 3
+    # Per-reporter daily report-submission quota (RealtyGroupReportRateLimiter).
+    # A single bucket shared across listing + realty-group reports per spec
+    # §12.1 so a spammer cannot rotate target types to multiply the cap. Lives
+    # here alongside group-alert-threshold because both knobs govern listing-
+    # side reports too, not just realty-group reports.
+    daily-limit: 5
+  review:
+    # Blind-review business window, in days. SINGLE SOURCE for both the review
+    # submission cutoff (ReviewService) and the reveal-eligibility threshold
+    # (BlindReviewRevealTask) -- they are the same business window viewed from
+    # two sides and MUST stay equal, so they share this one key.
+    window-days: 14
+    # Rows processed per run of the hourly review-reveal scheduler
+    # (BlindReviewRevealTask). Batch-limit hits are logged at WARN.
+    reveal-batch-limit: 500
   support:
     rate-limit:
       tickets-per-hour: 5

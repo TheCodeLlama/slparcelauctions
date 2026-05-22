@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Slpa.Bot.Backend;
 using Slpa.Bot.Backend.Models;
+using Slpa.Bot.Options;
 using Slpa.Bot.Sl;
 using Slpa.Bot.Tasks;
 using Xunit;
@@ -18,7 +19,7 @@ public sealed class TaskLoopTests
         var backend = new Mock<IBackendClient>();
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), new BotActivityState(),
+            Mock.Of<IIdleParker>(), new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -44,7 +45,7 @@ public sealed class TaskLoopTests
                .ReturnsAsync((BotTaskResponse?)null);
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), new BotActivityState(),
+            Mock.Of<IIdleParker>(), new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -85,7 +86,7 @@ public sealed class TaskLoopTests
             .Throws(new InvalidOperationException("boom"));
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), new BotActivityState(),
+            Mock.Of<IIdleParker>(), new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(throwingSession.Object, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -112,7 +113,7 @@ public sealed class TaskLoopTests
         var parker = new Mock<IIdleParker>();
 
         var loop = new TaskLoop(session, backend.Object,
-            parker.Object, new BotActivityState(),
+            parker.Object, new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -141,7 +142,7 @@ public sealed class TaskLoopTests
               .ThrowsAsync(new OperationCanceledException());
 
         var loop = new TaskLoop(session, backend.Object,
-            parker.Object, new BotActivityState(),
+            parker.Object, new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -176,7 +177,7 @@ public sealed class TaskLoopTests
         var activity = new BotActivityState();
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), activity,
+            Mock.Of<IIdleParker>(), activity, new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -224,7 +225,7 @@ public sealed class TaskLoopTests
                });
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), new BotActivityState(),
+            Mock.Of<IIdleParker>(), new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
@@ -274,7 +275,7 @@ public sealed class TaskLoopTests
                });
 
         var loop = new TaskLoop(session, backend.Object,
-            Mock.Of<IIdleParker>(), new BotActivityState(),
+            Mock.Of<IIdleParker>(), new BotActivityState(), new BotOptions(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,

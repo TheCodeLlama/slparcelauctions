@@ -317,8 +317,8 @@ class EscrowPaymentIntegrationTest {
                     .auction(auction)
                     .state(EscrowState.ESCROW_PENDING)
                     .finalBidAmount(finalBid)
-                    .commissionAmt(commissionCalculator.commission(finalBid))
-                    .payoutAmt(commissionCalculator.payout(finalBid))
+                    .commissionAmt(commissionCalculator.commission(finalBid, auction.getCommissionRate()))
+                    .payoutAmt(commissionCalculator.payout(finalBid, auction.getCommissionRate()))
                     .consecutiveWorldApiFailures(0)
                     .build());
 

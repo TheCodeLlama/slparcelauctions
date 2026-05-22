@@ -36,7 +36,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * Verifies the {@code pg_advisory_xact_lock} cap-enforcement contract â€” two
  * threads racing to save when the count is 499 yield exactly one success and
  * one {@link SavedLimitReachedException}, with the final {@code saved_auctions}
- * row count clamped at {@value SavedAuctionService#SAVED_CAP}.
+ * row count clamped at {@code slpa.auction.saved-auctions-cap}.
  *
  * <p>Pre-fill uses bulk JDBC insert (~30ms total) rather than 499 service
  * calls (~10-30s). Each row needs a fresh ACTIVE auction since the unique
@@ -61,6 +61,7 @@ class SavedAuctionConcurrencyTest {
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.slparcelauctions.backend.auction.AuctionConfigProperties auctionConfig;
 
     private User user;
     private final List<Long> seededAuctionIds = new ArrayList<>();
@@ -77,18 +78,19 @@ class SavedAuctionConcurrencyTest {
                 .build());
         seededUserId = user.getId();
 
-        // Seed 499 ACTIVE auctions via a single bulk JDBC insert. The previous
-        // pattern called `auctionRepo.save(...)` 499Ã—2 in a tight loop, each
-        // grabbing+releasing a Hikari connection. Background scheduler threads
-        // in the boot context routinely starve the pool when this runs late
-        // in the surefire fork, causing seed to time out at 30s+ per save and
-        // the whole test to wall-clock past 13 minutes. A single COPY-style
+        // Seed (cap - 1) ACTIVE auctions via a single bulk JDBC insert. The
+        // previous pattern called `auctionRepo.save(...)` in a tight loop,
+        // each grabbing+releasing a Hikari connection. Background scheduler
+        // threads in the boot context routinely starve the pool when this runs
+        // late in the surefire fork, causing seed to time out at 30s+ per save
+        // and the whole test to wall-clock past 13 minutes. A single COPY-style
         // batch holds one connection for ~30ms total. No snapshot rows â€”
         // SavedAuctionService.save doesn't reach for the snapshot.
+        int seedCount = auctionConfig.savedAuctionsCap() - 1;
         OffsetDateTime now = OffsetDateTime.now();
         Timestamp createdAt = Timestamp.from(now.toInstant());
-        List<Object[]> auctionRows = new ArrayList<>(499);
-        for (int i = 0; i < 499; i++) {
+        List<Object[]> auctionRows = new ArrayList<>(seedCount);
+        for (int i = 0; i < seedCount; i++) {
             auctionRows.add(new Object[] {
                     UUID.randomUUID(),                             // public_id
                     UUID.randomUUID(),                             // sl_parcel_uuid
@@ -123,8 +125,8 @@ class SavedAuctionConcurrencyTest {
                 Long.class, user.getId());
         seededAuctionIds.addAll(ids);
 
-        // Bulk insert 499 saved_auctions rows.
-        List<Object[]> savedRows = new ArrayList<>(499);
+        // Bulk insert (cap - 1) saved_auctions rows.
+        List<Object[]> savedRows = new ArrayList<>(seedCount);
         for (int i = 0; i < ids.size(); i++) {
             savedRows.add(new Object[] {
                     user.getId(),
@@ -136,7 +138,7 @@ class SavedAuctionConcurrencyTest {
                 "INSERT INTO saved_auctions (user_id, auction_id, saved_at) VALUES (?, ?, ?)",
                 savedRows);
 
-        assertThat(savedRepo.countByUserId(user.getId())).isEqualTo(499);
+        assertThat(savedRepo.countByUserId(user.getId())).isEqualTo(seedCount);
     }
 
     @AfterEach
@@ -221,7 +223,7 @@ class SavedAuctionConcurrencyTest {
                     .isZero();
             assertThat(savedRepo.countByUserId(seededUserId))
                     .as("final saved count is clamped at the cap")
-                    .isEqualTo(SavedAuctionService.SAVED_CAP);
+                    .isEqualTo(auctionConfig.savedAuctionsCap());
         } finally {
             pool.shutdownNow();
         }

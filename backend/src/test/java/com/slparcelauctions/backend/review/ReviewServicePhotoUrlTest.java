@@ -81,7 +81,7 @@ class ReviewServicePhotoUrlTest {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher,
-                eventPublisher, clock);
+                eventPublisher, new ReviewProperties(14, 500), clock);
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .username("seller").passwordHash("x").displayName("Sally").build();

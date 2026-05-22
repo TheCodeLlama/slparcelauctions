@@ -75,12 +75,17 @@ class TerminalCommandDispatcherTaskTest {
     TerminalCommandDispatcherTask task;
     Clock fixed;
 
+    private static final EscrowRetryPolicy RETRY_POLICY = new EscrowRetryPolicy(
+            java.util.List.of(Duration.ofMinutes(1), Duration.ofMinutes(5),
+                    Duration.ofMinutes(15)));
+
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-21T14:00:00Z"), ZoneOffset.UTC);
         task = new TerminalCommandDispatcherTask(
                 cmdRepo, terminalRepo, escrowRepo, ledgerRepo, terminalHttp,
-                broadcastPublisher, props, walletWithdrawalCallbackHandler, fixed);
+                broadcastPublisher, props, RETRY_POLICY, walletWithdrawalCallbackHandler,
+                fixed);
         lenient().when(props.terminalLiveWindow()).thenReturn(LIVE_WINDOW);
         lenient().when(props.commandInFlightTimeout()).thenReturn(IN_FLIGHT_TIMEOUT);
         lenient().when(props.terminalSharedSecret()).thenReturn(SHARED_SECRET);
@@ -274,7 +279,7 @@ class TerminalCommandDispatcherTaskTest {
         TerminalCommand cmd = buildQueued();
         cmd.setStatus(TerminalCommandStatus.IN_FLIGHT);
         cmd.setDispatchedAt(OffsetDateTime.now(fixed).minusMinutes(10));
-        cmd.setAttemptCount(com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy.MAX_ATTEMPTS);
+        cmd.setAttemptCount(RETRY_POLICY.maxAttempts());
         when(cmdRepo.findByIdForUpdate(CMD_ID)).thenReturn(Optional.of(cmd));
         when(cmdRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -296,7 +301,7 @@ class TerminalCommandDispatcherTaskTest {
                 .recipientUuid(UUID.randomUUID().toString())
                 .amount(100L)
                 .status(TerminalCommandStatus.IN_FLIGHT)
-                .attemptCount(com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy.MAX_ATTEMPTS)
+                .attemptCount(RETRY_POLICY.maxAttempts())
                 .dispatchedAt(OffsetDateTime.now(fixed).minusMinutes(10))
                 .idempotencyKey("WAL-99")
                 .requiresManualReview(false)

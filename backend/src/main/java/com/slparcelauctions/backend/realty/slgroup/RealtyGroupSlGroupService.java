@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
@@ -36,8 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RealtyGroupSlGroupService {
 
-    static final Duration VERIFICATION_TTL = Duration.ofDays(7);
-
     private final RealtyGroupSlGroupRepository repo;
     private final RealtyGroupRepository groupRepo;
     private final RealtyGroupAuthorizer authorizer;
@@ -45,7 +44,16 @@ public class RealtyGroupSlGroupService {
     private final SlWorldApiClient worldApi;
     private final SlGroupVerificationCodeGenerator codeGen;
     private final AuctionRepository auctionRepo;
+    private final RealtyGroupModerationProperties realtyProperties;
     private final Clock clock;
+
+    /**
+     * SL-group registration verification-code TTL —
+     * {@code slpa.realty.sl-group.verification-ttl-days} days (default 7).
+     */
+    private Duration verificationTtl() {
+        return Duration.ofDays(realtyProperties.getSlGroup().getVerificationTtlDays());
+    }
 
     @Transactional
     public RealtyGroupSlGroup register(Long callerUserId, UUID realtyGroupPublicId, UUID slGroupUuid) {
@@ -81,7 +89,7 @@ public class RealtyGroupSlGroupService {
                 .slGroupName(slGroupName)
                 .verified(false)
                 .verificationCode(codeGen.generate())
-                .verificationCodeExpiresAt(now.plus(VERIFICATION_TTL))
+                .verificationCodeExpiresAt(now.plus(verificationTtl()))
                 .build();
         RealtyGroupSlGroup saved = repo.save(row);
         log.info("SL group registered (pending): realtyGroupId={} slGroupUuid={} code={}",

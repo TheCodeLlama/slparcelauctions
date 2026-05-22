@@ -5,23 +5,27 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import lombok.RequiredArgsConstructor;
-
 /**
- * In-memory rate limiter for the CSV export endpoint. 1 export per user
- * per 60 seconds. Process-local; can move to Redis if/when we go
- * multi-instance.
+ * In-memory rate limiter for the CSV export endpoint. One export per user
+ * per {@code slpa.wallet.ledger-export-rate-limit} window. Process-local;
+ * can move to Redis if/when we go multi-instance.
  */
 @Component
-@RequiredArgsConstructor
 public class LedgerExportRateLimiter {
 
-    private static final Duration WINDOW = Duration.ofSeconds(60);
-
+    private final Duration window;
     private final Clock clock;
     private final ConcurrentHashMap<Long, Instant> lastExportAt = new ConcurrentHashMap<>();
+
+    public LedgerExportRateLimiter(
+            Clock clock,
+            @Value("${slpa.wallet.ledger-export-rate-limit}") Duration window) {
+        this.clock = clock;
+        this.window = window;
+    }
 
     /**
      * @return true if allowed; false if blocked by rate limit
@@ -29,7 +33,7 @@ public class LedgerExportRateLimiter {
     public boolean tryAcquire(Long userId) {
         Instant now = clock.instant();
         Instant prior = lastExportAt.get(userId);
-        if (prior != null && Duration.between(prior, now).compareTo(WINDOW) < 0) {
+        if (prior != null && Duration.between(prior, now).compareTo(window) < 0) {
             return false;
         }
         lastExportAt.put(userId, now);

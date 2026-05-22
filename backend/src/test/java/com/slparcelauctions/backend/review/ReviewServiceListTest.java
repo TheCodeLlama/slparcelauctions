@@ -48,6 +48,7 @@ class ReviewServiceListTest {
 
     private static final Instant FIXED_NOW = Instant.parse("2026-05-01T10:00:00Z");
     private static final OffsetDateTime NOW = OffsetDateTime.ofInstant(FIXED_NOW, ZoneOffset.UTC);
+    private static final ReviewProperties REVIEW_PROPERTIES = new ReviewProperties(14, 500);
 
     @Mock ReviewRepository reviewRepo;
     @Mock ReviewResponseRepository responseRepo;
@@ -72,7 +73,7 @@ class ReviewServiceListTest {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher,
-                eventPublisher, clock);
+                eventPublisher, REVIEW_PROPERTIES, clock);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
         winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();
@@ -164,7 +165,7 @@ class ReviewServiceListTest {
         assertThat(resp.canReview()).isTrue();
         assertThat(resp.myPendingReview()).isNull();
         assertThat(resp.windowClosesAt()).isEqualTo(escrow.getCompletedAt()
-                .plus(ReviewService.REVIEW_WINDOW));
+                .plus(java.time.Duration.ofDays(REVIEW_PROPERTIES.windowDays())));
     }
 
     @Test

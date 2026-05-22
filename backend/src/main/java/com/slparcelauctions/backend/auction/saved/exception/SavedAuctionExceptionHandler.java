@@ -9,7 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.slparcelauctions.backend.auction.saved.SavedAuctionService;
+import org.springframework.beans.factory.annotation.Value;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -21,6 +21,16 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.auction.saved")
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class SavedAuctionExceptionHandler {
+
+    // Read via @Value rather than the AuctionConfigProperties POJO so this
+    // @RestControllerAdvice still wires in @WebMvcTest slices, which load the
+    // Environment but not @EnableConfigurationProperties beans.
+    private final int savedAuctionsCap;
+
+    public SavedAuctionExceptionHandler(
+            @Value("${slpa.auction.saved-auctions-cap}") int savedAuctionsCap) {
+        this.savedAuctionsCap = savedAuctionsCap;
+    }
 
     @ExceptionHandler(CannotSavePreActiveException.class)
     public ProblemDetail handleCannotSave(
@@ -43,7 +53,7 @@ public class SavedAuctionExceptionHandler {
         pd.setTitle("Saved Limit Reached");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SAVED_LIMIT_REACHED");
-        pd.setProperty("cap", SavedAuctionService.SAVED_CAP);
+        pd.setProperty("cap", savedAuctionsCap);
         return pd;
     }
 }

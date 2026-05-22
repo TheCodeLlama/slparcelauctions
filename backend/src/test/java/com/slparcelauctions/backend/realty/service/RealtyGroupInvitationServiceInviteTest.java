@@ -63,6 +63,12 @@ class RealtyGroupInvitationServiceInviteTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
+    // Spy a real properties instance so the externalized invitation-ttl-days
+    // default (7) is exercised; @InjectMocks injects @Spy fields by type.
+    @org.mockito.Spy
+    com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties
+            realtyProperties =
+            new com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties();
 
     @InjectMocks RealtyGroupInvitationService service;
 

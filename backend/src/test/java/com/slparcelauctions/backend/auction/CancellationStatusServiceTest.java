@@ -37,7 +37,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *   <li>Ladder index → next consequence mapping (matches
  *       {@link CancellationService}'s authoritative logic).</li>
  *   <li>currentSuspension echoes the user's three new columns verbatim.</li>
- *   <li>History page-size clamp (>{@code MAX_PAGE_SIZE} → 50).</li>
+ *   <li>History page-size clamp (>{@code slpa.auction.cancellation-status-max-page} → 50).</li>
  *   <li>History sort always cancelledAt DESC regardless of caller's Sort.</li>
  *   <li>{@code penaltyApplied} null when log row's kind is NONE.</li>
  *   <li>Photo URL is null when no listing photos (no parcel snapshot fallback).</li>
@@ -60,7 +60,8 @@ class CancellationStatusServiceTest {
         CancellationPenaltyProperties penalty = new CancellationPenaltyProperties(
                 new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
                 48);
-        service = new CancellationStatusService(logRepo, userRepo, penalty);
+        service = new CancellationStatusService(
+                logRepo, userRepo, penalty, AuctionConfigPropertiesFixture.defaults());
 
         user = User.builder()
                 .id(USER_ID)

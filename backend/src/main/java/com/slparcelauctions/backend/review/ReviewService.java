@@ -67,16 +67,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ReviewService {
 
-    /**
-     * Hard cutoff for the review window. Reviews submitted strictly after
-     * {@code escrow.completedAt + 14 days} are rejected with
-     * {@link ReviewWindowClosedException} (422). The day-14 scheduler
-     * sweep uses the same duration so a review submitted at
-     * {@code T+13d23h59m} is accepted but the sweep that fires at
-     * {@code T+14d} reveals it.
-     */
-    public static final Duration REVIEW_WINDOW = Duration.ofDays(14);
-
     private final ReviewRepository reviewRepo;
     private final ReviewResponseRepository responseRepo;
     private final ReviewFlagRepository flagRepo;
@@ -86,7 +76,21 @@ public class ReviewService {
     private final ReviewBroadcastPublisher broadcastPublisher;
     private final NotificationPublisher notificationPublisher;
     private final ApplicationEventPublisher eventPublisher;
+    private final ReviewProperties reviewProperties;
     private final Clock clock;
+
+    /**
+     * Hard cutoff for the review window. Reviews submitted strictly after
+     * {@code escrow.completedAt + slpa.review.window-days} are rejected with
+     * {@link ReviewWindowClosedException} (422). The reveal scheduler sweep
+     * uses the same duration so a review submitted just before the cutoff is
+     * accepted but the sweep that fires at the cutoff reveals it. Externalized
+     * via {@link ReviewProperties#windowDays()} -- the single definition of
+     * the blind-review business window, shared with {@link BlindReviewRevealTask}.
+     */
+    private Duration reviewWindow() {
+        return Duration.ofDays(reviewProperties.windowDays());
+    }
 
     /**
      * Persist a new {@link Review} for the caller against the given
@@ -119,10 +123,10 @@ public class ReviewService {
         }
 
         OffsetDateTime now = OffsetDateTime.now(clock);
-        OffsetDateTime windowCloses = escrow.getCompletedAt().plus(REVIEW_WINDOW);
+        OffsetDateTime windowCloses = escrow.getCompletedAt().plus(reviewWindow());
         if (now.isAfter(windowCloses)) {
             throw new ReviewWindowClosedException(
-                    "The 14-day review window for this auction has closed.");
+                    "The review window for this auction has closed.");
         }
 
         Long sellerId = auction.getSeller().getId();
@@ -275,8 +279,8 @@ public class ReviewService {
      * reviews only. When the caller is authenticated AND a party to the
      * completed escrow, the response enriches with their own pending
      * submission, a {@code canReview} bool, and the absolute
-     * {@code windowClosesAt} timestamp so the UI can render the "14 day"
-     * countdown without a second round-trip.
+     * {@code windowClosesAt} timestamp so the UI can render the
+     * review-window countdown without a second round-trip.
      */
     @Transactional(readOnly = true)
     public AuctionReviewsResponse listForAuction(Long auctionId, User caller) {
@@ -305,7 +309,7 @@ public class ReviewService {
             boolean isParty = callerId.equals(sellerId)
                     || (winnerId != null && callerId.equals(winnerId));
             if (isParty) {
-                windowCloses = e.getCompletedAt().plus(REVIEW_WINDOW);
+                windowCloses = e.getCompletedAt().plus(reviewWindow());
                 OffsetDateTime now = OffsetDateTime.now(clock);
                 boolean windowOpen = !now.isAfter(windowCloses);
                 Optional<Review> mine = reviewRepo
@@ -344,7 +348,7 @@ public class ReviewService {
 
     /**
      * Every completed escrow where the caller is seller or winner, the
-     * 14-day window is still open, and the caller has not yet submitted
+     * review window is still open, and the caller has not yet submitted
      * a review. Used by the dashboard's "waiting for your review" tab.
      * {@link PendingReviewDto#of} takes {@code now} from this method's
      * Clock so a frozen-clock test can assert {@code hoursRemaining}
@@ -356,14 +360,15 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public List<PendingReviewDto> listPendingForCaller(User caller) {
         OffsetDateTime now = OffsetDateTime.now(clock);
-        OffsetDateTime threshold = now.minus(REVIEW_WINDOW);
+        Duration window = reviewWindow();
+        OffsetDateTime threshold = now.minus(window);
         return escrowRepo.findCompletedEscrowsForUser(caller.getId(), threshold)
                 .stream()
                 .filter(e -> reviewRepo
                         .findByAuctionIdAndReviewerId(e.getAuction().getId(), caller.getId())
                         .isEmpty())
                 .map(e -> PendingReviewDto.of(e, caller,
-                        resolveCounterparty(e, caller), now))
+                        resolveCounterparty(e, caller), now, window))
                 .toList();
     }
 

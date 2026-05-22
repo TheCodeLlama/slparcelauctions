@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.realty.exception.MemberSeatLimitReachedExcep
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
@@ -53,9 +54,6 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class RealtyGroupInvitationService {
 
-    /** Live invitation window per spec §3.3 — 7 days from creation. */
-    static final Duration INVITATION_TTL = Duration.ofDays(7);
-
     private final RealtyGroupRepository groups;
     private final RealtyGroupMemberRepository members;
     private final RealtyGroupInvitationRepository invitations;
@@ -63,6 +61,15 @@ public class RealtyGroupInvitationService {
     private final NotificationPublisher notifications;
     private final UserRepository users;
     private final RealtyGroupGuard realtyGroupGuard;
+    private final RealtyGroupModerationProperties realtyProperties;
+
+    /**
+     * Live invitation window per spec §3.3 — {@code slpa.realty.invitation-ttl-days}
+     * days from creation (default 7).
+     */
+    private Duration invitationTtl() {
+        return Duration.ofDays(realtyProperties.getInvitationTtlDays());
+    }
 
     /**
      * Issue a new invitation. Caller needs {@link RealtyGroupPermission#INVITE_AGENTS} or
@@ -119,7 +126,7 @@ public class RealtyGroupInvitationService {
             .invitedUserId(invitee.getId())
             .invitedById(callerUserId)
             .status(InvitationStatus.PENDING)
-            .expiresAt(OffsetDateTime.now().plus(INVITATION_TTL))
+            .expiresAt(OffsetDateTime.now().plus(invitationTtl()))
             .agentCommissionRate(commissionRate)
             .build();
         invitation.setPermissionSet(perms);

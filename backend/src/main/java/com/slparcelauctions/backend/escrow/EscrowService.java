@@ -96,8 +96,6 @@ public class EscrowService {
             EscrowState.FROZEN, Set.of()
     );
 
-    private static final long TRANSFER_DEADLINE_HOURS = 72;
-
     private final EscrowRepository escrowRepo;
     private final AuctionStatusFlipper statusFlipper;
     private final EscrowTransactionRepository ledgerRepo;
@@ -158,7 +156,7 @@ public class EscrowService {
                 .auction(auction)
                 .state(EscrowState.ESCROW_PENDING)
                 .finalBidAmount(finalBid)
-                .commissionAmt(commission.commission(finalBid))
+                .commissionAmt(commission.commission(finalBid, auction.getCommissionRate()))
                 .payoutAmt(payoutAmt)
                 .consecutiveWorldApiFailures(0)
                 .build();
@@ -204,7 +202,7 @@ public class EscrowService {
         saved.setState(EscrowState.FUNDED);
         saved.setFundedAt(endedAt);
         saved.setState(EscrowState.TRANSFER_PENDING);
-        saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
+        saved.setTransferDeadline(endedAt.plusHours(escrowConfig.transferDeadlineHours()));
         saved = escrowRepo.save(saved);
         statusFlipper.flip(saved, AuctionStatus.TRANSFER_PENDING);
 
@@ -729,7 +727,7 @@ public class EscrowService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirmSellTo(Escrow escrow, OffsetDateTime now) {
         escrow.setSellToConfirmedAt(now);
-        escrow.setTransferDeadline(now.plusHours(TRANSFER_DEADLINE_HOURS));
+        escrow.setTransferDeadline(now.plusHours(escrowConfig.transferDeadlineHours()));
         escrow.setNextOwnerCheckAt(now);
         escrow.setConsecutiveSellToBotFailures(0);
         escrow.setManualVerifyPending(false);
@@ -1051,7 +1049,7 @@ public class EscrowService {
             // agent and group wallets internally at payout-success.
             return 0L;
         }
-        return commission.payout(finalBid);
+        return commission.payout(finalBid, auction.getCommissionRate());
     }
 
     /**
