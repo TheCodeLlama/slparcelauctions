@@ -184,6 +184,10 @@ public class Auction extends BaseMutableEntity {
     @Column(name = "starting_bid", nullable = false)
     private Long startingBid;
 
+    @Builder.Default
+    @Column(name = "bid_increment", nullable = false)
+    private Long bidIncrement = 50L;
+
     @Column(name = "reserve_price")
     private Long reservePrice;
 
