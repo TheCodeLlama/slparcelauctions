@@ -25,9 +25,11 @@ import com.slparcelauctions.backend.user.UserAvatarUrl;
  * <ul>
  *   <li>{@code reserveMet} = reservePrice IS NULL OR currentBid &gt;= reservePrice.
  *       The frontend gets one authoritative flag, never recomputes it.</li>
- *   <li>{@code primaryPhotoUrl} = first seller-uploaded photo URL when present,
- *       else {@code parcel.snapshotUrl}. The fallback is server-side so
- *       browsers don't double-fetch when no seller photos exist.</li>
+ *   <li>{@code primaryPhotoLightUrl} / {@code primaryPhotoDarkUrl} = the
+ *       light + dark variant URLs of the first seller-uploaded photo,
+ *       already resolved by {@link AuctionPhotoBatchRepository}. Both are
+ *       null when the listing has no photos; the dark URL alone is null
+ *       when the primary photo carries no dark variant.</li>
  * </ul>
  *
  * <p>The {@link Parcel} entity has no separate "name" column; the SL parcel
@@ -41,7 +43,7 @@ public class AuctionSearchResultMapper {
     public List<AuctionSearchResultDto> toDtos(
             Collection<Auction> page,
             Map<Long, Set<ParcelTag>> tagsByAuctionId,
-            Map<Long, String> photoUrlsByAuctionId,
+            Map<Long, PrimaryPhotoUrls> photoUrlsByAuctionId,
             Map<Long, BigDecimal> distancesByAuctionId) {
 
         List<AuctionSearchResultDto> dtos = new ArrayList<>(page.size());
@@ -49,13 +51,13 @@ public class AuctionSearchResultMapper {
             Set<ParcelTag> tags = tagsByAuctionId == null
                     ? Set.of()
                     : tagsByAuctionId.getOrDefault(a.getId(), Set.of());
-            String photoUrl = photoUrlsByAuctionId == null
+            PrimaryPhotoUrls photo = photoUrlsByAuctionId == null
                     ? null
                     : photoUrlsByAuctionId.get(a.getId());
             BigDecimal distance = distancesByAuctionId == null
                     ? null
                     : distancesByAuctionId.get(a.getId());
-            dtos.add(toDto(a, tags, photoUrl, distance));
+            dtos.add(toDto(a, tags, photo, distance));
         }
         return dtos;
     }
@@ -63,7 +65,7 @@ public class AuctionSearchResultMapper {
     public AuctionSearchResultDto toDto(
             Auction a,
             Set<ParcelTag> tags,
-            String primaryPhotoUrl,
+            PrimaryPhotoUrls primaryPhoto,
             BigDecimal distance) {
 
         AuctionParcelSnapshot snap = a.getParcelSnapshot();
@@ -73,9 +75,12 @@ public class AuctionSearchResultMapper {
                 || (a.getCurrentBid() != null
                         && a.getCurrentBid() >= a.getReservePrice());
 
-        // SL parcel snapshot photos are now auction_photos rows; primaryPhotoUrl
-        // is already resolved from that table by the caller. No snapshotUrl fallback.
-        String photoUrl = primaryPhotoUrl;
+        // SL parcel snapshot photos are now auction_photos rows; the light +
+        // dark variant URLs are already resolved from that table by the
+        // caller. No snapshotUrl fallback. Both null when the listing has no
+        // photos; the dark URL alone is null for a single-variant photo.
+        String lightUrl = primaryPhoto == null ? null : primaryPhoto.lightUrl();
+        String darkUrl = primaryPhoto == null ? null : primaryPhoto.darkUrl();
 
         ParcelSummaryDto parcelDto = snap == null ? null : new ParcelSummaryDto(
                 a.getPublicId(),
@@ -108,7 +113,8 @@ public class AuctionSearchResultMapper {
                 a.getStatus(),
                 a.getEndOutcome(),
                 parcelDto,
-                photoUrl,
+                lightUrl,
+                darkUrl,
                 sellerDto,
                 a.getVerificationTier(),
                 a.getCurrentBid(),

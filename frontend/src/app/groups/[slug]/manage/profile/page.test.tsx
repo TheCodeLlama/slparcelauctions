@@ -10,15 +10,20 @@ vi.mock("next/navigation", () => ({
 const useRealtyGroupBySlug = vi.fn();
 vi.mock("@/hooks/realty/useRealtyGroups", () => ({
   useRealtyGroupBySlug: (slug: string) => useRealtyGroupBySlug(slug),
-  // GroupProfileForm pulls these three; we don't exercise them here, so a
-  // minimal idle-state stub keeps the form's submit/upload branches dormant.
+  // GroupProfileForm pulls upload + delete mutations for both surfaces; we
+  // don't exercise them here, so minimal idle-state stubs keep the form's
+  // submit/upload/delete branches dormant.
   useUpdateGroup: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
     isPending: false,
   }),
   useUploadLogo: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteLogo: () => ({ mutate: vi.fn(), isPending: false }),
   useUploadCover: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteCover: () => ({ mutate: vi.fn(), isPending: false }),
+  useUploadDefaultListing: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteDefaultListing: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const useCurrentUser = vi.fn();
@@ -39,8 +44,9 @@ function makeGroup({
     name: "Sunset Realty",
     description: null,
     website: null,
-    logoUrl: null,
-    coverUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
+    coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-01-01T00:00:00Z",
     memberCount: 1 + agents.length,
     memberSeatLimit: 50,

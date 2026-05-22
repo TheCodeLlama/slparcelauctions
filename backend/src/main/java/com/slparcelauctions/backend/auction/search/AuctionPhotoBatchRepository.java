@@ -4,10 +4,10 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Loads the single primary-photo URL per auction in one batched query.
- * "Primary" is the lowest {@code sort_order} (tie-broken by {@code id}
- * ascending). Auctions with no photos are absent from the returned map
- * — callers fall back to {@code parcel.snapshotUrl}.
+ * Loads the primary-photo light + dark variant URL pair per auction in
+ * one batched query. "Primary" is the lowest {@code sort_order}
+ * (tie-broken by {@code id} ascending). Auctions with no photos are
+ * absent from the returned map.
  *
  * <p>Exists for the same N+1 reason as
  * {@link AuctionTagBatchRepository}: keeping the search page query free
@@ -15,5 +15,5 @@ import java.util.Map;
  */
 public interface AuctionPhotoBatchRepository {
 
-    Map<Long, String> findPrimaryPhotoUrls(Collection<Long> auctionIds);
+    Map<Long, PrimaryPhotoUrls> findPrimaryPhotoUrls(Collection<Long> auctionIds);
 }

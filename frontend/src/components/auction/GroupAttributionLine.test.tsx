@@ -7,7 +7,7 @@ describe("GroupAttributionLine", () => {
     render(
       <GroupAttributionLine
         agent={{ publicId: "u1", displayName: "Alice", avatarUrl: null }}
-        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: false }}
+        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, dissolved: false }}
       />,
     );
     // Case-3 "Sold by" heading from Realty Groups: E §6.4.
@@ -44,7 +44,7 @@ describe("GroupAttributionLine", () => {
     const { container } = render(
       <GroupAttributionLine
         agent={{ publicId: "u1", displayName: "Alice", avatarUrl: null }}
-        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: true }}
+        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, dissolved: true }}
       />,
     );
     expect(container).toBeEmptyDOMElement();
@@ -61,7 +61,7 @@ describe("GroupAttributionLine", () => {
     const { container } = render(
       <GroupAttributionLine
         agent={null}
-        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: false }}
+        group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, dissolved: false }}
       />,
     );
     expect(container).toBeEmptyDOMElement();
@@ -80,7 +80,7 @@ describe("GroupAttributionLine", () => {
           publicId: "g1",
           name: "Sunset Realty",
           slug: "sunset",
-          logoUrl: "/api/v1/realty-groups/g1/logo",
+          logoLightUrl: "/api/v1/realty-groups/g1/logo", logoDarkUrl: "/api/v1/realty-groups/g1/logo",
           dissolved: false,
         }}
       />,

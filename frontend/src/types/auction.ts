@@ -5,7 +5,9 @@
 //     except currentHighBid which is BigDecimal (serialized as number or string).
 //   - sellerPublicId is a UUID string — the backend DTO does not embed a
 //     UserPublicProfile, so the frontend fetches it separately when needed.
-//   - photos[].url (not bytesUrl) + contentType + sizeBytes + uploadedAt.
+//   - photos[].lightUrl + darkUrl + source + sortOrder (plan Task 6 split
+//     the legacy single `url` into the light/dark theme pair and dropped
+//     the contentType / sizeBytes / uploadedAt fields).
 //   - bidCount: Integer, bidderCount: Long (both are `number` in TS).
 
 import type { EscrowEnvelope, EscrowState } from "./escrow";
@@ -36,13 +38,33 @@ export type AuctionStatus =
 
 export type VerificationTier = "SCRIPT" | "BOT" | "OWNERSHIP_TRANSFER";
 
+/**
+ * Provenance of an auction photo row. Mirrors backend enum
+ * {@code com.slparcelauctions.backend.auction.PhotoSource}. Only the
+ * {@code USER_DEFAULT_COVER} / {@code GROUP_DEFAULT_COVER} sort-0 cover
+ * supports a dark variant; {@code SELLER_UPLOAD} and
+ * {@code SL_PARCEL_SNAPSHOT} rows stay single-slot.
+ */
+export type PhotoSource =
+  | "SELLER_UPLOAD"
+  | "SL_PARCEL_SNAPSHOT"
+  | "USER_DEFAULT_COVER"
+  | "GROUP_DEFAULT_COVER";
+
+/**
+ * Wire shape for a per-auction photo row. Mirrors backend
+ * {@code AuctionPhotoResponse} after plan Task 6 split the legacy single
+ * {@code url} into explicit {@code lightUrl} + {@code darkUrl}.
+ * {@code lightUrl} is always non-null; {@code darkUrl} is null when the row
+ * has no dark variant uploaded. Theme-aware render sites pass both into
+ * {@code ThemedImage}; single-slot sites read {@code lightUrl}.
+ */
 export interface AuctionPhotoDto {
   publicId: string;
-  url: string;
-  contentType: string;
-  sizeBytes: number;
+  lightUrl: string;
+  darkUrl: string | null;
+  source: PhotoSource;
   sortOrder: number;
-  uploadedAt: string;
 }
 
 /**
@@ -245,12 +267,17 @@ export interface PublicAuctionResponse {
 /**
  * Realty group attribution embedded on auction DTOs when the listing was
  * created under a group. Mirrors {@code AuctionGroupAttributionDto} server-side.
+ *
+ * Logo URLs are dual light/dark (plan `2026-05-21-theme-image-variants`).
+ * Either may be null; `useThemedImage` / `ThemedImage` pick the appropriate
+ * variant for the active theme and fall back to the sibling slot.
  */
 export interface GroupAttribution {
   publicId: string;
   name: string;
   slug: string;
-  logoUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
   dissolved: boolean;
 }
 

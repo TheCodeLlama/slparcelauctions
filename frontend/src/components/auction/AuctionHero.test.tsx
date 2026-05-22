@@ -15,11 +15,10 @@ function photo(
 ): AuctionPhotoDto {
   return {
     publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
-    url: `https://cdn.example/${id}.jpg`,
-    contentType: "image/jpeg",
-    sizeBytes: 1024,
+    lightUrl: `https://cdn.example/${id}.jpg`,
+    darkUrl: null,
+    source: "SELLER_UPLOAD",
     sortOrder: id,
-    uploadedAt: "2026-04-20T00:00:00Z",
     ...overrides,
   };
 }
@@ -119,6 +118,21 @@ describe("AuctionHero", () => {
       "data-variant",
       "gallery",
     );
+  });
+
+  it("renders the dark photo variant when the theme is dark", () => {
+    renderWithProviders(
+      <AuctionHero
+        photos={[
+          photo(1, { darkUrl: "https://cdn.example/1-dark.jpg" }),
+        ]}
+        snapshotUrl={null}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(
+      screen.getByTestId("auction-hero-image").getAttribute("src"),
+    ).toBe("https://cdn.example/1-dark.jpg");
   });
 
   // ---------- multi-photo branch (gallery + thumb strip) ----------

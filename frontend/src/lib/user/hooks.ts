@@ -70,10 +70,20 @@ export function useUploadDefaultCover() {
   const queryClient = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: (file: File) => userApi.uploadDefaultCover(file),
-    onSuccess: () => {
+    mutationFn: ({
+      variant,
+      file,
+    }: {
+      variant: "light" | "dark";
+      file: File;
+    }) => userApi.uploadDefaultCover(variant, file),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
-      toast.success("Default cover updated");
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark cover updated"
+          : "Light cover updated",
+      );
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 400) {
@@ -89,10 +99,15 @@ export function useDeleteDefaultCover() {
   const queryClient = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: () => userApi.deleteDefaultCover(),
-    onSuccess: () => {
+    mutationFn: ({ variant }: { variant: "light" | "dark" }) =>
+      userApi.deleteDefaultCover(variant),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
-      toast.success("Default cover removed");
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark cover removed"
+          : "Light cover removed",
+      );
     },
     onError: () => {
       toast.error("Failed to remove cover image");

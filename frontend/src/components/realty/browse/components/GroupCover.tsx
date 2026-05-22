@@ -1,20 +1,31 @@
 "use client";
 
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 
 interface GroupCoverProps {
-  coverUrl?: string | null;
+  /** Light cover variant (relative API path). */
+  coverLightUrl?: string | null;
+  /** Dark cover variant (relative API path). */
+  coverDarkUrl?: string | null;
   size?: "card" | "hero";
 }
 
-export function GroupCover({ coverUrl, size = "card" }: GroupCoverProps) {
+export function GroupCover({ coverLightUrl, coverDarkUrl, size = "card" }: GroupCoverProps) {
   const heightClass = size === "hero" ? "h-[200px]" : "h-[92px]";
-  const resolved = apiUrl(coverUrl ?? null);
+  // Mirror ThemedImage's resolution so the gradient fallback fires when
+  // neither variant is set, regardless of the active theme.
+  const chosen = useThemedImage(coverLightUrl, coverDarkUrl);
 
-  if (resolved) {
+  if (chosen) {
     return (
       <div className={`relative w-full ${heightClass} overflow-hidden bg-bg-hover`}>
-        <img src={resolved} alt="" className="w-full h-full object-contain" />
+        <ThemedImage
+          lightSrc={coverLightUrl}
+          darkSrc={coverDarkUrl}
+          alt=""
+          className="w-full h-full object-contain"
+        />
       </div>
     );
   }

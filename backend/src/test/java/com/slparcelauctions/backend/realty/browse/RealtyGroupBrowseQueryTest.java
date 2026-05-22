@@ -61,8 +61,12 @@ class RealtyGroupBrowseQueryTest {
             assertThat(row.getName()).isNotNull();
             assertThat(row.getSlug()).isNotNull();
             row.getDescription();
-            row.getLogoObjectKey();
-            row.getCoverObjectKey();
+            row.getLogoLightObjectKey();
+            row.getLogoDarkObjectKey();
+            row.getCoverLightObjectKey();
+            row.getCoverDarkObjectKey();
+            row.getDefaultListingLightObjectKey();
+            row.getDefaultListingDarkObjectKey();
             assertThat(row.getCreatedAt()).isNotNull();
             row.getMemberCount();
             row.getMemberSeatLimit();

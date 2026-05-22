@@ -825,9 +825,9 @@ class AuctionControllerIntegrationTest {
         for (int i = 0; i < n; i++) {
             photoRepository.save(AuctionPhoto.builder()
                     .auction(a)
-                    .objectKey("listings/" + a.getId() + "/stub-" + i + ".png")
-                    .contentType("image/png")
-                    .sizeBytes(1L)
+                    .lightObjectKey("listings/" + a.getId() + "/stub-" + i + ".png")
+                    .lightContentType("image/png")
+                    .lightSizeBytes(1L)
                     .sortOrder(i)
                     .build());
         }

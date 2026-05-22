@@ -71,7 +71,7 @@ class UserControllerTest {
     void createUser_returns201() throws Exception {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse response = new UserResponse(
-                publicId, "alice", "alice@example.com", "Alice", null, null, null, null, null, null, null, null, null,
+                publicId, "alice", "alice@example.com", "Alice", null, null, null, null, null, null, null, null, null, null,
                 false, null, false,
                 false, false, // avatarStepCompleted, displayNameStepCompleted
                 Map.of(), Map.of(),
@@ -181,7 +181,7 @@ class UserControllerTest {
     void getMe_returnsUserDto_whenAuthenticated() throws Exception {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse expected = new UserResponse(
-                publicId, "test", "test@example.com", "Test User", null, null, null, null, null, null, null, null, null,
+                publicId, "test", "test@example.com", "Test User", null, null, null, null, null, null, null, null, null, null,
                 false, null, false,
                 false, false, // avatarStepCompleted, displayNameStepCompleted
                 Map.of(), Map.of(),

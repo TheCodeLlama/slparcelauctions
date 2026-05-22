@@ -282,11 +282,10 @@ describe("AuctionPage generateMetadata", () => {
       photos: [
         {
           publicId: "00000000-0000-0000-0000-000000000001",
-          url: "https://cdn.example/hero.jpg",
-          contentType: "image/jpeg",
-          sizeBytes: 2048,
+          lightUrl: "https://cdn.example/hero.jpg",
+          darkUrl: null,
+          source: "SELLER_UPLOAD",
           sortOrder: 0,
-          uploadedAt: "2026-04-20T00:00:00Z",
         },
       ],
     });

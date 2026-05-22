@@ -15,11 +15,17 @@ public record UserResponse(
         String displayName,
         String bio,
         String profilePicUrl,
-        // Relative URL to the user's default cover image, or null when unset.
+        // Relative URLs to the user's default cover image, one per theme
+        // variant; either may be null when the matching column is unset. The
+        // frontend's ThemedImage helper picks light/dark by user preference
+        // and falls back to the sibling slot when one side is empty.
         // Resolved via {@code apiUrl()} on the frontend; the backing endpoint
         // is permitAll so {@code <img src>} renders without an Authorization
-        // header. Auto-inserted as the first photo on every new listing.
-        String defaultCoverUrl,
+        // header. Auto-inserted as the first photo on every new listing —
+        // see DefaultCoverPhotoService (both variants are copied when set;
+        // a dark-only source promotes into the light slot).
+        String defaultCoverLightUrl,
+        String defaultCoverDarkUrl,
         UUID slAvatarUuid,
         String slAvatarName,
         String slUsername,
@@ -57,8 +63,11 @@ public record UserResponse(
     }
 
     public static UserResponse from(User user, long unreadNotificationCount) {
-        String coverUrl = user.getDefaultCoverObjectKey() != null
-                ? "/api/v1/users/" + user.getPublicId() + "/default-cover/image"
+        String coverLightUrl = user.getDefaultCoverLightObjectKey() != null
+                ? "/api/v1/users/" + user.getPublicId() + "/default-cover/image?variant=light"
+                : null;
+        String coverDarkUrl = user.getDefaultCoverDarkObjectKey() != null
+                ? "/api/v1/users/" + user.getPublicId() + "/default-cover/image?variant=dark"
                 : null;
         return new UserResponse(
                 user.getPublicId(),
@@ -67,7 +76,8 @@ public record UserResponse(
                 user.getDisplayName(),
                 user.getBio(),
                 user.getProfilePicUrl(),
-                coverUrl,
+                coverLightUrl,
+                coverDarkUrl,
                 user.getSlAvatarUuid(),
                 user.getSlAvatarName(),
                 user.getSlUsername(),

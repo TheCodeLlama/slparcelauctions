@@ -29,7 +29,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionService;
 import com.slparcelauctions.backend.auction.ParcelSnapshotPhotoService;
-import com.slparcelauctions.backend.auction.UserDefaultCoverPhotoService;
+import com.slparcelauctions.backend.auction.DefaultCoverPhotoService;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.escrow.payment.ListingFeePaymentService;
 import com.slparcelauctions.backend.parcel.ParcelLookupService;
@@ -54,7 +54,7 @@ class AuctionCreationCouponSnapshotTest {
     @Mock AuctionRepository auctionRepo;
     @Mock ParcelLookupService parcelLookupService;
     @Mock ParcelSnapshotPhotoService parcelSnapshotPhotoService;
-    @Mock UserDefaultCoverPhotoService userDefaultCoverPhotoService;
+    @Mock DefaultCoverPhotoService defaultCoverPhotoService;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
     @Mock BanCheckService banCheckService;

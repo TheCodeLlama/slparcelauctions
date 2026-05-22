@@ -101,7 +101,7 @@ public class AuctionSearchService {
 
         List<Long> pageIds = page.stream().map(Auction::getId).toList();
         Map<Long, Set<ParcelTag>> tags = tagBatchRepo.findTagsGrouped(pageIds);
-        Map<Long, String> photos = photoBatchRepo.findPrimaryPhotoUrls(pageIds);
+        Map<Long, PrimaryPhotoUrls> photos = photoBatchRepo.findPrimaryPhotoUrls(pageIds);
         Map<Long, BigDecimal> distances = computeDistances(page.getContent(), resolvedRegion);
 
         List<AuctionSearchResultDto> dtos = mapper.toDtos(page.getContent(), tags, photos, distances);

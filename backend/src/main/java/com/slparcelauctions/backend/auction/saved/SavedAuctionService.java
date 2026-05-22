@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.auction.search.AuctionSearchQuery;
 import com.slparcelauctions.backend.auction.search.AuctionSearchResultDto;
 import com.slparcelauctions.backend.auction.search.AuctionSearchResultMapper;
 import com.slparcelauctions.backend.auction.search.AuctionTagBatchRepository;
+import com.slparcelauctions.backend.auction.search.PrimaryPhotoUrls;
 import com.slparcelauctions.backend.auction.search.SearchMeta;
 import com.slparcelauctions.backend.auction.search.SearchPagedResponse;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
@@ -174,7 +175,7 @@ public class SavedAuctionService {
 
         List<Long> ids = page.stream().map(Auction::getId).toList();
         Map<Long, Set<ParcelTag>> tags = tagBatchRepo.findTagsGrouped(ids);
-        Map<Long, String> photos = photoBatchRepo.findPrimaryPhotoUrls(ids);
+        Map<Long, PrimaryPhotoUrls> photos = photoBatchRepo.findPrimaryPhotoUrls(ids);
 
         List<AuctionSearchResultDto> dtos = mapper.toDtos(page.getContent(), tags, photos, null);
         Page<AuctionSearchResultDto> dtoPage = new PageImpl<>(dtos, pageable, page.getTotalElements());

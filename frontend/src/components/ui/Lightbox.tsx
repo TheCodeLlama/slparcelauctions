@@ -1,22 +1,26 @@
-/* eslint-disable @next/next/no-img-element -- lightbox displays API-served
- * binary content; next/image's remotePatterns loader is unnecessary. */
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
 import { Dialog, DialogPanel } from "@headlessui/react";
 import { ChevronLeft, ChevronRight, X } from "@/components/ui/icons";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 import { cn } from "@/lib/cn";
-import { apiUrl } from "@/lib/api/url";
 
 /**
  * Minimal image shape the {@link Lightbox} renders. Callers typically hand
- * in an {@code AuctionPhotoDto[]} slice; the lightbox only consumes
- * {@code url} and a stable key, so this narrower interface keeps the
+ * in an {@code AuctionPhotoDto[]} slice; the lightbox consumes a stable key
+ * plus a light/dark variant pair, so this narrower interface keeps the
  * component reusable outside the auction domain.
+ *
+ * Both variants are passed to {@link ThemedImage}, which picks the one
+ * matching the active theme and falls back to the sibling slot when only
+ * one was uploaded. Single-variant callers (e.g. parcel snapshots) pass the
+ * same URL for both, or leave {@code darkUrl} null.
  */
 export interface LightboxImage {
   id: number | string;
-  url: string;
+  lightUrl: string;
+  darkUrl: string | null;
 }
 
 export interface LightboxProps {
@@ -174,9 +178,10 @@ export function Lightbox({
               cropped by a 16:9 frame. */}
           <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4 pt-16">
             {current && (
-              <img
+              <ThemedImage
                 key={current.id}
-                src={apiUrl(current.url) ?? undefined}
+                lightSrc={current.lightUrl}
+                darkSrc={current.darkUrl}
                 alt=""
                 className="max-h-full max-w-full object-contain"
                 data-testid="lightbox-image"
@@ -235,8 +240,9 @@ export function Lightbox({
                           : "ring-transparent hover:ring-border",
                       )}
                     >
-                      <img
-                        src={apiUrl(image.url) ?? undefined}
+                      <ThemedImage
+                        lightSrc={image.lightUrl}
+                        darkSrc={image.darkUrl}
                         alt=""
                         className="h-full w-full object-cover"
                       />

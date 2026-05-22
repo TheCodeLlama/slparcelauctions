@@ -29,7 +29,8 @@ function sampleListing(
       positionZ: 89,
       tags: [],
     },
-    primaryPhotoUrl: null,
+    primaryPhotoLightUrl: null,
+    primaryPhotoDarkUrl: null,
     seller: {
       publicId: "00000000-0000-0000-0000-000000000007",
       displayName: "seller",

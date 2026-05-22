@@ -20,6 +20,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
+import com.slparcelauctions.backend.common.image.InvalidVariantException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -345,6 +346,30 @@ public class GlobalExceptionHandler {
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SL_API_TIMEOUT");
         pd.setProperty("api", e.getApi());
+        return pd;
+    }
+
+    /**
+     * Raised by {@link com.slparcelauctions.backend.common.image.ImageVariant#parse(String)}
+     * when a controller receives a {@code variant} token outside the
+     * {@code light}/{@code dark} pair. Surfaces as {@code 400 INVALID_VARIANT}
+     * so the frontend can distinguish a malformed wire-shape from a generic
+     * bad-request (which would fall through to {@link IllegalArgumentException}
+     * below) and echo the offending token back to the caller. Lives in the
+     * global handler because the same exception is thrown from realty, user,
+     * and auction controllers; placing it package-locally would force
+     * duplication.
+     */
+    @ExceptionHandler(InvalidVariantException.class)
+    public ProblemDetail handleInvalidVariant(InvalidVariantException e,
+                                              HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Invalid variant: " + e.getValue());
+        pd.setType(URI.create("https://slpa.example/problems/invalid-variant"));
+        pd.setTitle("Invalid variant");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_VARIANT");
+        pd.setProperty("value", e.getValue());
         return pd;
     }
 

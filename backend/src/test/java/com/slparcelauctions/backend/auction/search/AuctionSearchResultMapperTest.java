@@ -42,18 +42,33 @@ class AuctionSearchResultMapperTest {
     }
 
     @Test
-    void primaryPhotoUrl_nullWhenNoPhotoUrlProvided() {
+    void primaryPhotoUrls_nullWhenNoPhotoProvided() {
         Auction a = auction(4L, 500L, null);
         AuctionSearchResultDto dto = mapOne(a);
-        assertThat(dto.primaryPhotoUrl()).isNull();
+        assertThat(dto.primaryPhotoLightUrl()).isNull();
+        assertThat(dto.primaryPhotoDarkUrl()).isNull();
     }
 
     @Test
-    void primaryPhotoUrl_usesFirstSellerPhoto_whenAvailable() {
+    void primaryPhotoUrls_dualVariant_returnsBothLightAndDark() {
         Auction a = auction(5L, 500L, null);
         AuctionSearchResultDto dto = mapper.toDto(a, Set.of(),
-                "/api/v1/auctions/5/photos/42/bytes", null);
-        assertThat(dto.primaryPhotoUrl()).isEqualTo("/api/v1/auctions/5/photos/42/bytes");
+                new PrimaryPhotoUrls(
+                        "/api/v1/photos/p5?variant=light",
+                        "/api/v1/photos/p5?variant=dark"),
+                null);
+        assertThat(dto.primaryPhotoLightUrl()).isEqualTo("/api/v1/photos/p5?variant=light");
+        assertThat(dto.primaryPhotoDarkUrl()).isEqualTo("/api/v1/photos/p5?variant=dark");
+    }
+
+    @Test
+    void primaryPhotoUrls_singleVariant_returnsLightWithNullDark() {
+        Auction a = auction(11L, 500L, null);
+        AuctionSearchResultDto dto = mapper.toDto(a, Set.of(),
+                new PrimaryPhotoUrls("/api/v1/photos/p11?variant=light", null),
+                null);
+        assertThat(dto.primaryPhotoLightUrl()).isEqualTo("/api/v1/photos/p11?variant=light");
+        assertThat(dto.primaryPhotoDarkUrl()).isNull();
     }
 
     @Test

@@ -287,7 +287,8 @@ class RealtyGroupListingServiceTest {
         assertThat(dto.publicId()).isEqualTo(group.getPublicId());
         assertThat(dto.name()).isEqualTo("Mainland Realty Co.");
         assertThat(dto.slug()).isEqualTo("mainland-realty-co");
-        assertThat(dto.logoUrl()).isNull();
+        assertThat(dto.logoLightUrl()).isNull();
+        assertThat(dto.logoDarkUrl()).isNull();
         // Per-caller commission rate replaces the prior C-era group-wide agentFeeRate.
         assertThat(dto.agentCommissionRate()).isEqualByComparingTo(new BigDecimal("0.0800"));
     }

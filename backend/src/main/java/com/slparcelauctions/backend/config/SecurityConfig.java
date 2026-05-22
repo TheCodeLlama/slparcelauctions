@@ -147,7 +147,11 @@ public class SecurityConfig {
                         // Must come before the /api/v1/** catch-all.
                         // FOOTGUNS §B.5: matcher order is first-match-wins.
                         .requestMatchers(HttpMethod.GET, "/api/v1/photos/*").permitAll()
-                        // Authenticated seller-only upload + delete.
+                        // Authenticated seller-only upload + delete. The "**"
+                        // POST glob covers both the seller-photo upload
+                        // (POST /api/v1/auctions/{id}/photos) and the plan
+                        // Task 7 dark-variant upload (POST .../photos/{pid}/dark).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/auctions/*/photos/**").authenticated()
                         // Public bid history (Epic 04 sub-spec 1). Spec §4 marks
@@ -279,6 +283,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/members").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/logo/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/cover/image").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/default-listing/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/realty-groups").permitAll()
                         // Realty group public listings read (sub-project C §5.3).
                         // Auth: public — same rationale as group detail above; <img> and

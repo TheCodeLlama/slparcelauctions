@@ -1,8 +1,10 @@
-/* eslint-disable @next/next/no-img-element -- logo/cover bytes are API-served binary content; next/image requires remotePatterns config */
+"use client";
+
 import type { ReactNode } from "react";
 import { ExternalLink } from "@/components/ui/icons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import { cn } from "@/lib/cn";
 
 export interface RealtyGroupHeroBannerProps {
@@ -16,12 +18,17 @@ export interface RealtyGroupHeroBannerProps {
   memberSince: string;
   memberCount: number;
   /**
-   * Relative path emitted by the backend (e.g. `/api/v1/realty-groups/{id}/cover`).
-   * Funneled through {@link apiUrl} at render time. Null => gradient empty state.
+   * Light cover variant — relative path emitted by the backend (e.g.
+   * `/api/v1/realty-groups/{id}/cover`). Theme-aware via {@link ThemedImage}.
+   * Both variants null => gradient empty state.
    */
-  coverUrl: string | null;
-  /** Same convention as {@link coverUrl}, but null falls back to initials. */
-  logoUrl: string | null;
+  coverLightUrl: string | null;
+  /** Dark cover variant. Same convention as {@link coverLightUrl}. */
+  coverDarkUrl: string | null;
+  /** Light logo variant. Both variants null => initials fallback. */
+  logoLightUrl: string | null;
+  /** Dark logo variant. Same convention as {@link logoLightUrl}. */
+  logoDarkUrl: string | null;
   /**
    * Slot for member-only affordances (gear icon -> manage page). The page
    * passes an `<EditGroupAffordance>` client component here so the server
@@ -53,9 +60,11 @@ function formatMemberSince(memberSince: string): string {
  * Cover falls back to a tasteful gradient when null (never a broken-image
  * icon). Logo falls back to first-initial style.
  *
- * Image URLs are wrapped through {@link apiUrl} so the browser hits the
- * backend origin rather than the page origin (Amplify does not proxy
- * `/api/*`).
+ * Cover and logo are theme-aware: {@link ThemedImage} picks the variant
+ * matching the active theme, falls back to the sibling slot when only one
+ * was uploaded, and funnels the relative path through {@code apiUrl} so the
+ * browser hits the backend origin rather than the page origin (Amplify does
+ * not proxy `/api/*`).
  */
 export function RealtyGroupHeroBanner({
   name,
@@ -63,13 +72,15 @@ export function RealtyGroupHeroBanner({
   website,
   memberSince,
   memberCount,
-  coverUrl,
-  logoUrl,
+  coverLightUrl,
+  coverDarkUrl,
+  logoLightUrl,
+  logoDarkUrl,
   editAffordance,
   className,
 }: RealtyGroupHeroBannerProps) {
-  const resolvedCover = apiUrl(coverUrl);
-  const resolvedLogo = apiUrl(logoUrl);
+  const hasCover = useThemedImage(coverLightUrl, coverDarkUrl) !== null;
+  const hasLogo = useThemedImage(logoLightUrl, logoDarkUrl) !== null;
 
   return (
     <section
@@ -78,9 +89,10 @@ export function RealtyGroupHeroBanner({
       data-testid="realty-group-hero-banner"
     >
       <div className="relative aspect-[16/5] w-full overflow-hidden bg-bg-hover sm:rounded-xl">
-        {resolvedCover ? (
-          <img
-            src={resolvedCover}
+        {hasCover ? (
+          <ThemedImage
+            lightSrc={coverLightUrl}
+            darkSrc={coverDarkUrl}
             alt=""
             className="h-full w-full object-contain"
             aria-hidden="true"
@@ -101,9 +113,10 @@ export function RealtyGroupHeroBanner({
 
       <div className="relative -mt-10 px-4 sm:px-6">
         <div className="flex items-end gap-4">
-          {resolvedLogo ? (
-            <img
-              src={resolvedLogo}
+          {hasLogo ? (
+            <ThemedImage
+              lightSrc={logoLightUrl}
+              darkSrc={logoDarkUrl}
               alt=""
               className="h-16 w-auto max-w-[12rem] rounded-md border border-border bg-surface-raised object-contain shadow-md"
               aria-hidden="true"

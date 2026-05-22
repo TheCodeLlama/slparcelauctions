@@ -7,10 +7,16 @@
  * - `backend/.../realty/dto/RealtyGroupPublicDto.java` and friends
  * - `docs/superpowers/specs/2026-05-10-realty-groups-core-permissions-design.md`
  *
- * Image URLs (`logoUrl`, `coverUrl`, `avatarUrl`) come back as relative
- * paths emitted by the backend. Callers MUST wrap them with `apiUrl(...)`
- * at render time so the browser hits the backend rather than the page
- * origin (Amplify does not proxy `/api/*`).
+ * Image URLs (`logoLightUrl`/`logoDarkUrl`, `coverLightUrl`/`coverDarkUrl`,
+ * `avatarUrl`) come back as relative paths emitted by the backend. Callers
+ * MUST wrap them with `apiUrl(...)` at render time so the browser hits the
+ * backend rather than the page origin (Amplify does not proxy `/api/*`).
+ *
+ * Logo/cover images ship as paired light/dark variants (plan
+ * `2026-05-21-theme-image-variants`). Either slot may be null; the
+ * frontend's `useThemedImage` / `ThemedImage` helpers pick the variant
+ * matching the active theme and fall back to the sibling when the matched
+ * slot is unset.
  */
 
 // ─── Enums ─────────────────────────────────────────────────────────────────
@@ -79,10 +85,26 @@ export interface RealtyGroupPublicDto {
   slug: string;
   description: string | null;
   website: string | null;
-  /** Relative path — wrap with apiUrl() at render time. */
-  logoUrl: string | null;
-  /** Relative path — wrap with apiUrl() at render time. */
-  coverUrl: string | null;
+  /** Relative path - wrap with apiUrl() at render time. Null when no light logo has been uploaded. */
+  logoLightUrl: string | null;
+  /** Relative path - wrap with apiUrl() at render time. Null when no dark logo has been uploaded. */
+  logoDarkUrl: string | null;
+  /** Relative path - wrap with apiUrl() at render time. Null when no light cover has been uploaded. */
+  coverLightUrl: string | null;
+  /** Relative path - wrap with apiUrl() at render time. Null when no dark cover has been uploaded. */
+  coverDarkUrl: string | null;
+  /**
+   * Group default listing picture, light variant. Seeds the sort-0 photo on
+   * auctions created on behalf of this group when the seller doesn't supply
+   * their own. Relative path - wrap with apiUrl() at render time. Null when
+   * no light variant has been uploaded.
+   */
+  defaultListingLightUrl: string | null;
+  /**
+   * Group default listing picture, dark variant. See {@link defaultListingLightUrl}.
+   * Null when no dark variant has been uploaded.
+   */
+  defaultListingDarkUrl: string | null;
   memberSince: string;
   leader: LeaderCardDto;
   agents: AgentCardDto[];
@@ -121,7 +143,8 @@ export interface RealtyGroupSummaryDto {
   publicId: string;
   name: string;
   slug: string;
-  logoUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
   memberCount: number;
   memberSince: string;
 }
@@ -130,7 +153,8 @@ export interface UserRealtyGroupAffiliationDto {
   groupPublicId: string;
   groupName: string;
   groupSlug: string;
-  logoUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
   role: RealtyGroupRole;
 }
 
@@ -222,7 +246,8 @@ export interface ListingEligibleGroup {
   publicId: string;
   name: string;
   slug: string;
-  logoUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
   /** Decimal as number from JSON, e.g. 0.10 for a 10% per-member commission rate. */
   agentCommissionRate: number;
 }
@@ -712,8 +737,11 @@ export interface GroupRating {
 
 /**
  * Wire shape for one card on the public groups directory. Matches the backend
- * `RealtyGroupCardDto` record (spec section 6.1). `logoUrl` / `coverUrl` are
- * relative paths — render via `apiUrl(...)`.
+ * `RealtyGroupCardDto` record (spec section 6.1). Logo + cover URLs ship as
+ * dual light/dark variants (plan `2026-05-21-theme-image-variants`); each
+ * is a relative path - render via `apiUrl(...)`. Either variant may be null;
+ * the `useThemedImage` helper picks the variant matching the active theme
+ * and falls back to its sibling slot when the matched one is unset.
  *
  * `tagline` is the backend-truncated description (120 chars + ellipsis); the
  * frontend renders it as-is.
@@ -726,8 +754,10 @@ export interface RealtyGroupCard {
   name: string;
   slug: string;
   tagline: string;
-  logoUrl: string | null;
-  coverUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
+  coverLightUrl: string | null;
+  coverDarkUrl: string | null;
   foundedAt: string;
   memberCount: number;
   memberSeatLimit: number;

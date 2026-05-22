@@ -18,13 +18,31 @@ describe("GroupChip", () => {
       <GroupChip
         groupSlug="x"
         groupName="X Realty"
-        logoUrl="/api/v1/realty-groups/abc/logo"
+        logoLightUrl="/api/v1/realty-groups/abc/logo"
+        logoDarkUrl={null}
       />,
     );
     const img = container.querySelector("img") as HTMLImageElement;
     expect(img).not.toBeNull();
     expect(img.getAttribute("src")).toBe(
       "http://localhost:8080/api/v1/realty-groups/abc/logo",
+    );
+  });
+
+  it("renders the dark logo variant when the theme is dark", () => {
+    const { container } = renderWithProviders(
+      <GroupChip
+        groupSlug="x"
+        groupName="X Realty"
+        logoLightUrl="/api/v1/realty-groups/abc/logo?variant=light"
+        logoDarkUrl="/api/v1/realty-groups/abc/logo?variant=dark"
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    const img = container.querySelector("img") as HTMLImageElement;
+    expect(img).not.toBeNull();
+    expect(img.getAttribute("src")).toBe(
+      "http://localhost:8080/api/v1/realty-groups/abc/logo?variant=dark",
     );
   });
 

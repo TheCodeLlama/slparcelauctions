@@ -1,11 +1,11 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- logo bytes are API-served binary content */
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Users2 } from "@/components/ui/icons";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import type { RealtyGroupSummaryDto } from "@/types/realty";
 
 export interface MyGroupsListProps {
@@ -56,7 +56,8 @@ export function MyGroupsList({ groups }: MyGroupsListProps) {
 }
 
 function MyGroupRow({ group }: { group: RealtyGroupSummaryDto }) {
-  const logo = apiUrl(group.logoUrl);
+  const hasLogo =
+    useThemedImage(group.logoLightUrl, group.logoDarkUrl) !== null;
   return (
     <li>
       <Link
@@ -64,9 +65,10 @@ function MyGroupRow({ group }: { group: RealtyGroupSummaryDto }) {
         className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2.5 transition-colors hover:bg-bg-hover"
         data-testid={`my-group-row-${group.publicId}`}
       >
-        {logo ? (
-          <img
-            src={logo}
+        {hasLogo ? (
+          <ThemedImage
+            lightSrc={group.logoLightUrl}
+            darkSrc={group.logoDarkUrl}
             alt=""
             className="h-10 w-10 rounded object-cover"
             aria-hidden="true"

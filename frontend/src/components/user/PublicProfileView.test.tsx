@@ -119,7 +119,7 @@ describe("PublicProfileView", () => {
           groupPublicId: "10000000-0000-0000-0000-000000000001",
           groupName: "Mainland Realty",
           groupSlug: "mainland-realty",
-          logoUrl: null,
+          logoLightUrl: null, logoDarkUrl: null,
           role: "LEADER",
         },
       ]),

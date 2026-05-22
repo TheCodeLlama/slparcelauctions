@@ -1,11 +1,15 @@
 "use client";
 
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import { initialsOf } from "../lib/format";
 
 interface GroupLogoProps {
   name: string;
-  logoUrl?: string | null;
+  /** Light logo variant (relative API path). */
+  logoLightUrl?: string | null;
+  /** Dark logo variant (relative API path). */
+  logoDarkUrl?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   square?: boolean;
 }
@@ -17,12 +21,15 @@ const SIZE: Record<NonNullable<GroupLogoProps["size"]>, string> = {
   xl: "w-[108px] h-[108px] text-4xl",
 };
 
-export function GroupLogo({ name, logoUrl, size = "md", square }: GroupLogoProps) {
-  const resolved = apiUrl(logoUrl ?? null);
-  if (resolved) {
+export function GroupLogo({ name, logoLightUrl, logoDarkUrl, size = "md", square }: GroupLogoProps) {
+  // Mirror ThemedImage's resolution so the initials fallback fires when
+  // neither variant is set, regardless of the active theme.
+  const chosen = useThemedImage(logoLightUrl, logoDarkUrl);
+  if (chosen) {
     return (
-      <img
-        src={resolved}
+      <ThemedImage
+        lightSrc={logoLightUrl}
+        darkSrc={logoDarkUrl}
         alt={`${name} logo`}
         className={`${SIZE[size]} shrink-0 object-contain bg-surface-raised border border-border ${square ? "" : "rounded-lg"}`}
       />

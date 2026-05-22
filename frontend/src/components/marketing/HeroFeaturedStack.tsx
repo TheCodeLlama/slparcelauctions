@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { AuctionSearchResultDto } from "@/types/search";
 import { cn } from "@/lib/cn";
 import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 
 /**
  * Hero right-side 3D card stack: up to three featured auctions rendered as
@@ -31,14 +32,24 @@ export function HeroFeaturedStack({ featured }: { featured: AuctionSearchResultD
           style={{ zIndex: 3 - i }}
         >
           <div className="relative aspect-[16/10] bg-bg-muted">
-            {(listing.primaryPhotoUrl ?? listing.parcel.snapshotUrl) && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={apiUrl(listing.primaryPhotoUrl) ?? apiUrl(listing.parcel.snapshotUrl) ?? ""}
+            {listing.primaryPhotoLightUrl != null ? (
+              <ThemedImage
+                lightSrc={listing.primaryPhotoLightUrl}
+                darkSrc={listing.primaryPhotoDarkUrl}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="eager"
               />
+            ) : (
+              listing.parcel.snapshotUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={apiUrl(listing.parcel.snapshotUrl) ?? ""}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="eager"
+                />
+              )
             )}
             <div className="absolute bottom-2 left-2 rounded-xs bg-fg/45 px-1.5 py-0.5 font-mono text-[10.5px] text-bg backdrop-blur-sm">
               {listing.parcel.region}
