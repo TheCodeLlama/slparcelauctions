@@ -228,6 +228,26 @@ class AuctionDtoMapperTest {
         assertThat(dto.listingAgent()).isNull();
     }
 
+    @Test
+    void toPublicResponse_carriesBidIncrement() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setBidIncrement(250L);
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.bidIncrement()).isEqualTo(250L);
+    }
+
+    @Test
+    void toSellerResponse_carriesBidIncrement() {
+        Auction a = buildAuction(AuctionStatus.DRAFT);
+        a.setBidIncrement(250L);
+
+        SellerAuctionResponse dto = mapper.toSellerResponse(a);
+
+        assertThat(dto.bidIncrement()).isEqualTo(250L);
+    }
+
     private Auction buildAuction(AuctionStatus status) {
         return buildAuction(status, User.builder().id(42L).email("s@example.com").username("s").build());
     }

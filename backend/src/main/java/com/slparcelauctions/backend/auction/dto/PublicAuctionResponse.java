@@ -51,6 +51,7 @@ public record PublicAuctionResponse(
         PublicAuctionStatus status,
         VerificationTier verificationTier,
         Long startingBid,
+        Long bidIncrement,
         Boolean hasReserve,
         Boolean reserveMet,
         Long buyNowPrice,

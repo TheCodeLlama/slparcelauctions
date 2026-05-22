@@ -41,6 +41,7 @@ public record SellerAuctionResponse(
         VerificationTier verificationTier,
         String verificationNotes,
         Long startingBid,
+        Long bidIncrement,
         Long reservePrice,
         Long buyNowPrice,
         Long currentBid,

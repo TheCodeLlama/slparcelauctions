@@ -413,6 +413,7 @@ class AuctionControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.hasReserve").exists())
                 .andExpect(jsonPath("$.reserveMet").exists())
+                .andExpect(jsonPath("$.bidIncrement").value(50))
                 // No seller-only fields leak
                 .andExpect(jsonPath("$.listingFeePaid").doesNotExist())
                 .andExpect(jsonPath("$.commissionRate").doesNotExist())
