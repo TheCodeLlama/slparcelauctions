@@ -513,7 +513,7 @@ function TitleField({
 /**
  * Minimum bid increment numeric input. The field auto-tracks the suggestion
  * derived from the starting bid until the seller manually edits it. The dirty
- * flag lives on the parent via the onChange callback — this component is
+ * flag lives on the parent via the onChange callback; this component is
  * purely presentational and does not own the flag.
  */
 function BidIncrementField({

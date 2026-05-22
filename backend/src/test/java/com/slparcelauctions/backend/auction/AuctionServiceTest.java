@@ -459,7 +459,7 @@ class AuctionServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // create(): bidIncrement resolution (Task 3 - bid increments feature)
+    // create(): bidIncrement resolution
     // -------------------------------------------------------------------------
 
     @Test
