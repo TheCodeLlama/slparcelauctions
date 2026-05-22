@@ -24,6 +24,8 @@ public record AuctionUpdateRequest(
         @Min(1) Long startingBid,
         Long reservePrice,
         Long buyNowPrice,
+        @Min(value = 1, message = "bidIncrement must be at least 1")
+        Long bidIncrement,
         Integer durationHours,
         Boolean snipeProtect,
         Integer snipeWindowMin,

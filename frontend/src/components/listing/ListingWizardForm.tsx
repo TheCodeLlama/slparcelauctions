@@ -9,6 +9,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isApiError } from "@/lib/api";
 import { useListingDraft } from "@/hooks/useListingDraft";
 import { useListingEligibleGroups } from "@/hooks/realty/useListingEligibleGroups";
+import { suggestedBidIncrement } from "@/lib/auction/suggestedBidIncrement";
 import { cn } from "@/lib/cn";
 import type { SellerAuctionResponse } from "@/types/auction";
 import type { SuspensionReasonCode } from "@/types/cancellation";
@@ -93,7 +94,22 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [bidIncrementError, setBidIncrementError] = useState<string | null>(null);
   const [groupWalletInsufficient, setGroupWalletInsufficient] = useState(false);
+  const isEdit = mode === "edit";
+
+  /**
+   * Tracks whether the seller has manually edited the bid increment field.
+   * While false, the field auto-tracks the suggestion derived from the
+   * starting bid. Once the seller types in the field directly, this flips
+   * to true and the field stops auto-tracking.
+   *
+   * Initialized to true in edit mode because the server-hydrated value is
+   * the creator's already-chosen increment and must not be auto-clobbered
+   * if the seller changes the starting bid before touching the increment
+   * field.
+   */
+  const bidIncrementDirtyRef = useRef(isEdit);
   /**
    * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
    * {@link SuspensionReasonCode} when the wizard's save call returns a
@@ -103,8 +119,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
    */
   const [suspensionCode, setSuspensionCode] =
     useState<SuspensionReasonCode | null>(null);
-
-  const isEdit = mode === "edit";
 
   // Listing-eligible groups — only relevant in create mode. The picker is
   // hidden in edit mode because group attribution is immutable after creation.
@@ -185,6 +199,11 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     draft.update("durationHours", next.durationHours);
     draft.update("snipeProtect", next.snipeProtect);
     draft.update("snipeWindowMin", next.snipeWindowMin);
+    // Auto-track the bid increment suggestion whenever the starting bid
+    // changes and the seller has not manually edited the increment field.
+    if (!bidIncrementDirtyRef.current) {
+      draft.update("bidIncrement", suggestedBidIncrement(next.startingBid));
+    }
   }
 
   async function runSave(): Promise<SellerAuctionResponse | null> {
@@ -199,6 +218,13 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       return null;
     }
     setTitleError(null);
+    // Bid increment validation mirrors the backend @Min(1) constraint.
+    const bidIncVal = draft.state.bidIncrement;
+    if (!Number.isInteger(bidIncVal) || bidIncVal < 1) {
+      setBidIncrementError("Minimum bid increment must be at least L$1.");
+      return null;
+    }
+    setBidIncrementError(null);
     const previousAuctionPublicId = draft.state.auctionPublicId;
     try {
       const saved = await draft.save();
@@ -393,6 +419,15 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                   value={settings}
                   onChange={applySettings}
                 />
+                <BidIncrementField
+                  value={draft.state.bidIncrement}
+                  error={bidIncrementError}
+                  onChange={(next) => {
+                    bidIncrementDirtyRef.current = true;
+                    if (bidIncrementError) setBidIncrementError(null);
+                    draft.update("bidIncrement", next);
+                  }}
+                />
               </section>
 
               {!isEdit && (
@@ -471,6 +506,60 @@ function TitleField({
         {length} / {MAX_TITLE}
       </span>
       <FormError message={error ?? undefined} />
+    </div>
+  );
+}
+
+/**
+ * Minimum bid increment numeric input. The field auto-tracks the suggestion
+ * derived from the starting bid until the seller manually edits it. The dirty
+ * flag lives on the parent via the onChange callback; this component is
+ * purely presentational and does not own the flag.
+ */
+function BidIncrementField({
+  value,
+  error,
+  onChange,
+}: {
+  value: number;
+  error: string | null;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor="bid-increment"
+        className="text-xs font-medium text-fg-muted"
+      >
+        Minimum bid increment (L$)
+      </label>
+      <input
+        id="bid-increment"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        step={1}
+        value={value}
+        aria-invalid={error != null}
+        aria-describedby={error ? "bid-increment-error" : "bid-increment-helper"}
+        onChange={(e) => {
+          const parsed = Number(e.target.value);
+          if (Number.isFinite(parsed)) {
+            onChange(parsed);
+          }
+        }}
+        className="h-12 w-full rounded-lg bg-bg-subtle px-4 text-fg ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        data-testid="bid-increment-input"
+      />
+      {error ? (
+        <span id="bid-increment-error" className="text-xs text-danger">
+          {error}
+        </span>
+      ) : (
+        <span id="bid-increment-helper" className="text-xs text-fg-muted">
+          The smallest amount each new bid must raise the price by.
+        </span>
+      )}
     </div>
   );
 }

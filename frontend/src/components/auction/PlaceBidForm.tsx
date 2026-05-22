@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError, isApiError } from "@/lib/api";
 import { placeBid } from "@/lib/api/auctions";
-import { minRequiredBid } from "@/lib/auction/bidIncrement";
 import { useMyRealtyGroups } from "@/hooks/realty/useRealtyGroups";
 import type {
   BidResponse,
@@ -66,10 +65,20 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
     !auction.realtyGroup.dissolved &&
     (myGroupsQuery.data?.some((g) => g.publicId === auction.realtyGroup!.publicId) ?? false);
 
-  const min = useMemo(
-    () => minRequiredBid(auction.currentHighBid, auction.startingBid),
-    [auction.currentHighBid, auction.startingBid],
-  );
+  // Next minimum bid: per-auction flat increment from the current high bid,
+  // or the starting bid when no bids have been placed yet.
+  const min = useMemo(() => {
+    const current =
+      auction.currentHighBid == null
+        ? 0
+        : typeof auction.currentHighBid === "string"
+        ? Number(auction.currentHighBid)
+        : auction.currentHighBid;
+    const currentValid = Number.isFinite(current) && current > 0;
+    return currentValid
+      ? current + auction.bidIncrement
+      : auction.startingBid;
+  }, [auction.currentHighBid, auction.startingBid, auction.bidIncrement]);
 
   const buyNow = auction.buyNowPrice;
   const parsed = amount === "" ? NaN : Number(amount);
@@ -172,7 +181,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
 
   return (
     <form onSubmit={onSubmit} data-testid="place-bid-form" className="flex flex-col gap-3">
-      <div>
+      <div className="flex flex-col gap-1">
         <label
           htmlFor={amountInputId}
           className="text-xs font-medium text-fg-muted"
@@ -202,6 +211,12 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
           }
           error={inlineError ?? undefined}
         />
+        <p
+          className="text-xs text-fg-muted"
+          data-testid="place-bid-increment-hint"
+        >
+          Minimum bid increment: L${auction.bidIncrement.toLocaleString()}
+        </p>
       </div>
       <Button
         type="submit"

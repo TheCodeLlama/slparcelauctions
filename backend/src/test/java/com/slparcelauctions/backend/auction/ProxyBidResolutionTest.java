@@ -110,9 +110,12 @@ class ProxyBidResolutionTest {
 
     @Test
     void noCompetitor_withPreExistingCurrentBid_opensAtCurrentPlusIncrement() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the emitted bid amount, not a lookup table.
+        auction.setBidIncrement(100L);
         // Auction already has a bid landed (perhaps by a cancelled proxy's
         // lingering effect on currentBid). Opening should clear
-        // currentBid + minIncrement.
+        // currentBid + bidIncrement.
         auction.setCurrentBid(2000L);
         ProxyBid aProxy = proxy(1L, userA, 5000L, NOW);
         when(proxyBidRepo.findFirstByAuctionIdAndStatusAndBidderIdNot(
@@ -121,7 +124,7 @@ class ProxyBidResolutionTest {
 
         List<Bid> emitted = service.resolveProxyResolution(auction, aProxy);
 
-        // 2000 + 100 = 2100 (tier L$1000-9999 → L$100 increment)
+        // 2000 + 100 = 2100 (bidIncrement=100)
         assertThat(emitted.get(0).getAmount()).isEqualTo(2100L);
     }
 
@@ -131,6 +134,9 @@ class ProxyBidResolutionTest {
 
     @Test
     void newProxyMaxGreater_existingExhaustedAndSettles() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the settle amount, not a lookup table.
+        auction.setBidIncrement(100L);
         // Existing: userA max=2000 (ACTIVE). New: userB max=5000.
         // B wins at min(2000 + 100, 5000) = 2100.
         ProxyBid aExisting = proxy(1L, userA, 2000L, NOW.minusMinutes(5));
@@ -151,8 +157,11 @@ class ProxyBidResolutionTest {
 
     @Test
     void newProxyMaxGreater_butBelowIncrement_cappedAtNewProxyMax() {
-        // Existing max=2000; new proxy max=2050. Increment tier for 2000 is
-        // L$100, so settle = min(2000+100, 2050) = 2050 (capped at new.max).
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the settle amount.
+        auction.setBidIncrement(100L);
+        // Existing max=2000; new proxy max=2050. bidIncrement=100, so
+        // settle = min(2000+100, 2050) = 2050 (capped at new.max).
         ProxyBid aExisting = proxy(1L, userA, 2000L, NOW.minusMinutes(5));
         ProxyBid bNew = proxy(2L, userB, 2050L, NOW);
         when(proxyBidRepo.findFirstByAuctionIdAndStatusAndBidderIdNot(
@@ -171,6 +180,9 @@ class ProxyBidResolutionTest {
 
     @Test
     void newProxyMaxLess_existingWinsNewProxyExhausted() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the counter amount.
+        auction.setBidIncrement(100L);
         // Existing: userA max=5000 (ACTIVE). New: userB max=2000.
         // New flushes at 2000; existing counters at min(2000+100, 5000) = 2100.
         ProxyBid aExisting = proxy(1L, userA, 5000L, NOW.minusMinutes(5));

@@ -66,6 +66,7 @@ function sellerResponse(
     verificationTier: null,
     verificationNotes: null,
     startingBid: 500,
+    bidIncrement: 100,
     reservePrice: null,
     buyNowPrice: null,
     currentBid: null,
@@ -887,5 +888,193 @@ describe("ListingWizardForm — List-as picker", () => {
 
     await waitFor(() => expect(capturedBody).toBeTruthy());
     expect(capturedBody!.listAsGroupPublicId).toBeNull();
+  });
+});
+
+describe("ListingWizardForm — bid increment field", () => {
+  async function resolveParcelAndTitle() {
+    await userEvent.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await userEvent.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
+  }
+
+  it("renders the bid increment input after a parcel is resolved", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+    expect(screen.getByTestId("bid-increment-input")).toBeInTheDocument();
+  });
+
+  it("pre-fills the increment from the starting-bid suggestion when untouched", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    // Default startingBid is 100 (from EMPTY) -> suggestion is 50.
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    expect(Number(incrementInput.value)).toBe(50);
+
+    // Change the starting bid to 5000 -> suggestion is 100.
+    const startingBid = screen.getByLabelText(/Starting bid/i);
+    await userEvent.clear(startingBid);
+    await userEvent.type(startingBid, "5000");
+
+    await waitFor(() => {
+      expect(Number(incrementInput.value)).toBe(100);
+    });
+  });
+
+  it("stops auto-tracking the suggestion after the creator edits the increment field directly", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+
+    // Seller manually edits the increment field.
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "250");
+    expect(Number(incrementInput.value)).toBe(250);
+
+    // Change the starting bid -> increment should NOT track the suggestion now.
+    const startingBid = screen.getByLabelText(/Starting bid/i);
+    await userEvent.clear(startingBid);
+    await userEvent.type(startingBid, "5000");
+
+    // After a brief settle, increment stays at 250.
+    await waitFor(() => {
+      const val = Number(incrementInput.value);
+      expect(val).toBe(250);
+    });
+  });
+
+  it("blocks submit and shows inline error when bid increment is 0", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "0");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save & continue/i }),
+    );
+
+    expect(
+      await screen.findByText("Minimum bid increment must be at least L$1."),
+    ).toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("blocks submit and shows inline error when bid increment is fractional", async () => {
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "0.5");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save & continue/i }),
+    );
+
+    expect(
+      await screen.findByText("Minimum bid increment must be at least L$1."),
+    ).toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("includes bidIncrement in the submitted request payload", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+      http.post("*/api/v1/auctions", async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sellerResponse(), { status: 201 });
+      }),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
+        HttpResponse.json(sellerResponse()),
+      ),
+    );
+    renderWithProviders(<ListingWizardForm mode="create" />);
+    await resolveParcelAndTitle();
+
+    // Set the increment to a specific value.
+    const incrementInput = screen.getByTestId("bid-increment-input") as HTMLInputElement;
+    await userEvent.clear(incrementInput);
+    await userEvent.type(incrementInput, "75");
+
+    await userEvent.click(screen.getByRole("button", { name: /Save & continue/i }));
+
+    await waitFor(() => expect(capturedBody).toBeTruthy());
+    expect(capturedBody!.bidIncrement).toBe(75);
+  });
+
+  it("does not auto-clobber the server-hydrated increment when starting bid changes in edit mode", async () => {
+    // startingBid=5000 with bidIncrement=777. suggestedBidIncrement(5000) = 100,
+    // which is not 777. If the dirty ref were false (the bug), changing
+    // startingBid would overwrite 777 with 100.
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000039", () =>
+        HttpResponse.json(
+          sellerResponse({
+            publicId: "00000000-0000-0000-0000-000000000039",
+            status: "DRAFT",
+            startingBid: 5000,
+            bidIncrement: 777,
+          }),
+        ),
+      ),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(
+      <ListingWizardForm mode="edit" id="00000000-0000-0000-0000-000000000039" />,
+    );
+
+    // Wait for hydration.
+    await screen.findByText("Beachfront retreat");
+
+    const incrementInput = (await screen.findByTestId(
+      "bid-increment-input",
+    )) as HTMLInputElement;
+
+    // Server value must be present after hydration.
+    await waitFor(() => {
+      expect(Number(incrementInput.value)).toBe(777);
+    });
+
+    // Change the starting bid without touching the increment field.
+    const startingBid = screen.getByLabelText(/Starting bid/i);
+    await userEvent.clear(startingBid);
+    await userEvent.type(startingBid, "1000");
+
+    // Increment must remain at the server-set 777, not silently drop to
+    // suggestedBidIncrement(1000) = 50.
+    await waitFor(() => {
+      expect(Number(incrementInput.value)).toBe(777);
+    });
   });
 });

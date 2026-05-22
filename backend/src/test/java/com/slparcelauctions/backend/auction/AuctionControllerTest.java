@@ -105,7 +105,7 @@ class AuctionControllerTest {
                 null,
                 AuctionStatus.CANCELLED,
                 null, null,
-                100L, null, null, 0L, 0,
+                100L, 50L, null, null, 0L, 0,
                 null, 0L, null,
                 24, false, null,
                 null, null, null,

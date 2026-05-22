@@ -105,6 +105,9 @@ public class AuctionService {
                 .startingBid(req.startingBid())
                 .reservePrice(req.reservePrice())
                 .buyNowPrice(req.buyNowPrice())
+                .bidIncrement(req.bidIncrement() != null
+                        ? req.bidIncrement()
+                        : BidIncrementSuggester.suggestedIncrement(req.startingBid()))
                 .durationHours(req.durationHours())
                 .snipeProtect(req.snipeProtect())
                 .snipeWindowMin(Boolean.TRUE.equals(req.snipeProtect()) ? req.snipeWindowMin() : null)
@@ -172,6 +175,9 @@ public class AuctionService {
         }
         if (req.startingBid() != null) {
             a.setStartingBid(req.startingBid());
+        }
+        if (req.bidIncrement() != null) {
+            a.setBidIncrement(req.bidIncrement());
         }
         if (req.reservePrice() != null) {
             a.setReservePrice(req.reservePrice() < 0 ? null : req.reservePrice());

@@ -3,7 +3,7 @@
 **Date:** 2026-05-21
 **Purpose:** Inventory of hardcoded policy values in the codebase that are NOT yet externalized to `application.yml` and that an operator might reasonably want to tune without a code change.
 
-**Status (2026-05-21):** Sections 2-6 externalized in branch `chore/externalize-config`. Section 1 P1 (commission) externalized AND a read-path bug fixed (the payout calculator hardcoded 5% and ignored the per-auction `commissionRate` snapshot, silently dropping coupon commission discounts at payout). Section 1 P3 (bid increments) deliberately NOT externalized to config: per-auction-creator-set bid increments is tracked as separate future feature work.
+**Status (2026-05-22):** Sections 2-6 externalized in branch `chore/externalize-config`. Section 1 P1 (commission) externalized AND a read-path bug fixed (the payout calculator hardcoded 5% and ignored the per-auction `commissionRate` snapshot, silently dropping coupon commission discounts at payout). Section 1 P3 (bid increments) closed as of 2026-05-22: per-auction creator-set bid increment is now a per-row field (`auctions.bid_increment`, V44), not a config value. See spec `docs/superpowers/specs/2026-05-22-bid-increments-design.md`.
 
 ## How to read this
 
@@ -24,7 +24,7 @@ All file/line references were captured 2026-05-21 against `main`. Verify the lin
 | Priority | Location | Current value | Controls | Suggested key |
 |---|---|---|---|---|
 | **P1** | `escrow/EscrowCommissionCalculator.java:13-14` | `FLOOR_LINDENS = 50L`, `RATE_PERCENT = 5L` | The 5% / L$50-floor commission policy. `slpa.commission.default-rate: 0.05` already exists in yml and is snapshotted onto `Auction.commissionRate` at listing creation. **Verify whether the calculator reads the per-auction snapshot or this hardcoded constant** — if it uses `RATE_PERCENT`, that is a drift bug (a coupon-discounted commission rate would be ignored at payout). At minimum the `L$50` floor should be `slpa.commission.minimum-lindens`. | `slpa.commission.minimum-lindens: 50` |
-| **P3 — NOT externalized (decision 2026-05-21)** | `auction/BidIncrementTable.java:38-41` | tiers `1_000` / `10_000` / `100_000`, increments `50`/`100`/`500`/`1_000` | Minimum-bid-increment ladder (DESIGN.md section 4.7). Spec-fixed but hardcoded; a structured config list would let promotions adjust it. **NOT externalized to config by decision 2026-05-21 — to become a per-auction-creator field; needs its own design pass.** | `slpa.auction.bid-increment-tiers` |
+| **P3 — CLOSED (2026-05-22)** | `auction/BidIncrementSuggester.java` | suggestion-only helper; per-auction `bid_increment` column (V44) | Minimum-bid-increment is now a per-auction creator-set field. `BidIncrementSuggester.suggestedIncrement(startingBid)` pre-fills the create-auction form with a suggestion derived from the starting bid; the seller can override it freely. `AuctionCreateRequest` and `AuctionUpdateRequest` carry an optional `@Min(1) bidIncrement`; `AuctionService` resolves it (explicit value or suggester fallback). Both `PublicAuctionResponse` and `SellerAuctionResponse` expose `bidIncrement`. `BidService` and `ProxyBidService` enforce `currentBid + auction.getBidIncrement()` as the minimum accepted bid. Spec: `docs/superpowers/specs/2026-05-22-bid-increments-design.md`. | n/a - per-row data, not global config |
 
 ---
 

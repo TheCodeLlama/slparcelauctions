@@ -48,8 +48,9 @@ import reactor.core.publisher.Mono;
  *       exhausted, B wins at {@code min(600 + 50, 1000) = 650}.</li>
  *   <li>User A PUTs max=2000. Resurrection: A flips to ACTIVE, runs
  *       resolution. Branch 2 again â€” A's new max (2000) &gt; B's max (1000),
- *       so B is exhausted and A wins at {@code min(1000 + 100, 2000) = 1100}
- *       (tier-break: currentBid=1000 â†’ L$100 increment).</li>
+ *       so B is exhausted and A wins at {@code min(1000 + 50, 2000) = 1050}
+ *       (the auction's flat per-row {@code bidIncrement} is L$50, suggested
+ *       from a startingBid of 500).</li>
  * </ol>
  */
 @SpringBootTest
@@ -135,7 +136,7 @@ class ProxyBidResurrectionTest {
         assertThat(aProxy.getStatus()).isEqualTo(ProxyBidStatus.EXHAUSTED);
 
         // Step 3 â€” A PUTs max=2000 â†’ resurrects. A's new max (2000) > B's (1000).
-        // settleAmount = min(1000 + 100, 2000) = 1100. A wins at 1100.
+        // settleAmount = min(1000 + 50, 2000) = 1050. A wins at 1050.
         mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -143,7 +144,7 @@ class ProxyBidResurrectionTest {
                 .andExpect(status().isOk());
 
         Auction afterResurrection = auctionRepository.findById(a.getId()).orElseThrow();
-        assertThat(afterResurrection.getCurrentBid()).isEqualTo(1100L);
+        assertThat(afterResurrection.getCurrentBid()).isEqualTo(1050L);
         assertThat(afterResurrection.getCurrentBidderId()).isEqualTo(aId);
 
         ProxyBid aResurrected = proxyBidRepository.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(
@@ -158,7 +159,7 @@ class ProxyBidResurrectionTest {
         // Verify the emitted PROXY_AUTO row exists.
         List<Bid> bids = bidRepository.findByAuctionIdOrderByCreatedAtAsc(a.getId());
         Bid last = bids.get(bids.size() - 1);
-        assertThat(last.getAmount()).isEqualTo(1100L);
+        assertThat(last.getAmount()).isEqualTo(1050L);
         assertThat(last.getBidType()).isEqualTo(BidType.PROXY_AUTO);
         assertThat(last.getBidder().getId()).isEqualTo(aId);
         assertThat(last.getIpAddress()).isNull();
