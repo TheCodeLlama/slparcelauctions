@@ -315,6 +315,9 @@ class ProxyBidServiceTest {
 
     @Test
     void updateProxyMax_exhaustedResurrection_throwsBidTooLow_whenBelowMinRequired() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the gate.
+        activeAuction.setBidIncrement(100L);
         activeAuction.setCurrentBid(1500L);
         activeAuction.setCurrentBidderId(99L);
         ProxyBid proxy = proxyRow(100L, bidder, 1200L, ProxyBidStatus.EXHAUSTED);
@@ -323,8 +326,8 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(500L, 20L))
                 .thenReturn(Optional.of(proxy));
 
-        // minRequired = 1500 + 100 = 1600. newMax = 1550 passes increase-only
-        // (> proxy.maxAmount=1200) but fails min-required.
+        // bidIncrement=100, currentBid=1500 => minRequired = 1600.
+        // newMax = 1550 passes increase-only (> proxy.maxAmount=1200) but fails min-required.
         assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 1550L))
                 .isInstanceOfSatisfying(BidTooLowException.class, e ->
                         assertThat(e.getMinRequired()).isEqualTo(1600L));
@@ -332,6 +335,9 @@ class ProxyBidServiceTest {
 
     @Test
     void updateProxyMax_exhaustedResurrection_flipsToActiveAndResolves() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the emitted bid amount.
+        activeAuction.setBidIncrement(100L);
         activeAuction.setCurrentBid(1500L);
         activeAuction.setCurrentBidderId(99L);
         ProxyBid proxy = proxyRow(100L, bidder, 1200L, ProxyBidStatus.EXHAUSTED);
@@ -347,7 +353,7 @@ class ProxyBidServiceTest {
 
         assertThat(proxy.getStatus()).isEqualTo(ProxyBidStatus.ACTIVE);
         assertThat(proxy.getMaxAmount()).isEqualTo(3000L);
-        // No-competitor branch emits one PROXY_AUTO at currentBid+increment
+        // No-competitor branch emits one PROXY_AUTO at currentBid + bidIncrement
         // (1500 + 100 = 1600).
         ArgumentCaptor<Bid> bidCap = ArgumentCaptor.forClass(Bid.class);
         verify(bidRepo).save(bidCap.capture());

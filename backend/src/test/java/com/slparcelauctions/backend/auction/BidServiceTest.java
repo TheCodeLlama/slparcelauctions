@@ -206,12 +206,15 @@ class BidServiceTest {
 
     @Test
     void throwsBidTooLowException_belowCurrentBidPlusIncrement() {
+        // Auction configured with bidIncrement=100 to prove the per-auction
+        // column drives the gate (not a lookup table).
+        activeAuction.setBidIncrement(100L);
         activeAuction.setCurrentBid(1000L);
         activeAuction.setBidCount(1);
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
         when(userRepo.findById(20L)).thenReturn(Optional.of(bidder));
 
-        // Tier for currentBid=1000 is L$100, so minRequired = 1100.
+        // bidIncrement=100, currentBid=1000 => minRequired = 1100.
         assertThatThrownBy(() -> service.placeBid(500L, 20L, 1099L, "1.2.3.4"))
                 .isInstanceOfSatisfying(BidTooLowException.class, e ->
                         assertThat(e.getMinRequired()).isEqualTo(1100L));

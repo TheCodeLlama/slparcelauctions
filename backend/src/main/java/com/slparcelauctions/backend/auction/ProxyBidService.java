@@ -278,7 +278,7 @@ public class ProxyBidService {
             // startingBid, whichever is higher.
             long currentBid = auction.getCurrentBid() == null ? 0L : auction.getCurrentBid();
             long floor = currentBid > 0L
-                    ? currentBid + BidIncrementTable.minIncrement(currentBid)
+                    ? currentBid + auction.getBidIncrement()
                     : auction.getStartingBid();
             long openingAmount = Math.max(floor, auction.getStartingBid());
             if (openingAmount > proxy.getMaxAmount()) {
@@ -298,7 +298,7 @@ public class ProxyBidService {
             // Branch 2 — new proxy wins. Counter at existing.max + increment,
             // capped at new proxy's max so we never bid above our own cap.
             long settleAmount = Math.min(
-                    existing.getMaxAmount() + BidIncrementTable.minIncrement(existing.getMaxAmount()),
+                    existing.getMaxAmount() + auction.getBidIncrement(),
                     proxy.getMaxAmount());
             existing.setStatus(ProxyBidStatus.EXHAUSTED);
             proxyBidRepo.save(existing);
@@ -308,7 +308,7 @@ public class ProxyBidService {
             // at min(new.max + increment, existing.max). New proxy flips to
             // EXHAUSTED immediately.
             long settleAmount = Math.min(
-                    proxy.getMaxAmount() + BidIncrementTable.minIncrement(proxy.getMaxAmount()),
+                    proxy.getMaxAmount() + auction.getBidIncrement(),
                     existing.getMaxAmount());
             proxy.setStatus(ProxyBidStatus.EXHAUSTED);
             proxyBidRepo.save(proxy);
@@ -359,7 +359,7 @@ public class ProxyBidService {
     private long minRequiredForNextBid(Auction auction) {
         long currentBid = auction.getCurrentBid() == null ? 0L : auction.getCurrentBid();
         return currentBid > 0L
-                ? currentBid + BidIncrementTable.minIncrement(currentBid)
+                ? currentBid + auction.getBidIncrement()
                 : auction.getStartingBid();
     }
 
