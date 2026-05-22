@@ -50,6 +50,7 @@ function baseAuction(
     verificationTier: null,
     verificationNotes: null,
     startingBid: 500,
+    bidIncrement: 100,
     reservePrice: null,
     buyNowPrice: null,
     currentBid: null,

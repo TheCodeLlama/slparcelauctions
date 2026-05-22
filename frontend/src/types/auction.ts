@@ -105,6 +105,13 @@ export interface SellerAuctionResponse {
   verificationTier: VerificationTier | null;
   verificationNotes: string | null;
   startingBid: number;
+  /**
+   * Per-auction flat minimum bid increment (L$). Set by the creator at
+   * listing time; editable pre-active. The bid panel reads this to
+   * compute the next minimum bid and to display the "Minimum bid
+   * increment" hint near the bid input.
+   */
+  bidIncrement: number;
   reservePrice: number | null;
   buyNowPrice: number | null;
   currentBid: number | null;
@@ -168,6 +175,12 @@ export interface AuctionCreateRequest {
    */
   title: string;
   startingBid: number;
+  /**
+   * Optional per-auction minimum bid increment (L$). When absent the backend
+   * falls back to the suggestion derived from startingBid. Always sent by the
+   * wizard form so the fallback is a defense-in-depth path.
+   */
+  bidIncrement?: number;
   reservePrice?: number | null;
   buyNowPrice?: number | null;
   durationHours: AuctionDurationHours;
@@ -219,6 +232,12 @@ export interface PublicAuctionResponse {
   status: PublicAuctionStatus;
   verificationTier: VerificationTier | null;
   startingBid: number;
+  /**
+   * Per-auction flat minimum bid increment (L$). Exposed on the public DTO
+   * so the bid panel can render the next-minimum-bid hint and the
+   * "Minimum bid increment: L$X" callout without a seller-only fetch.
+   */
+  bidIncrement: number;
   hasReserve: boolean;
   reserveMet: boolean;
   buyNowPrice: number | null;

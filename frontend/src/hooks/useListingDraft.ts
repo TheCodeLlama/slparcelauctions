@@ -12,6 +12,7 @@ import {
   revokeStagedPhoto,
   type StagedPhoto,
 } from "@/lib/listing/photoStaging";
+import { suggestedBidIncrement } from "@/lib/auction/suggestedBidIncrement";
 import type {
   AuctionCreateRequest,
   AuctionDurationHours,
@@ -66,6 +67,13 @@ export interface DraftState {
   title: string | null;
   parcel: ParcelDto | null;
   startingBid: number;
+  /**
+   * Per-auction flat minimum bid increment (L$). Tracks the suggestion
+   * derived from startingBid until the seller manually edits it (see
+   * bidIncrementDirty in ListingWizardForm). Always included in the
+   * save payload.
+   */
+  bidIncrement: number;
   reservePrice: number | null;
   buyNowPrice: number | null;
   durationHours: AuctionDurationHours;
@@ -91,6 +99,7 @@ const EMPTY: DraftState = {
   title: null,
   parcel: null,
   startingBid: 100,
+  bidIncrement: suggestedBidIncrement(100),
   reservePrice: null,
   buyNowPrice: null,
   durationHours: 72,
@@ -122,6 +131,7 @@ function hydrateFromServer(a: SellerAuctionResponse): DraftState {
     title: a.title,
     parcel: a.parcel,
     startingBid: a.startingBid,
+    bidIncrement: a.bidIncrement,
     reservePrice: a.reservePrice,
     buyNowPrice: a.buyNowPrice,
     durationHours: a.durationHours as AuctionDurationHours,
@@ -392,6 +402,7 @@ export function useListingDraft(
       slParcelUuid: s.parcel.slParcelUuid,
       title: trimmedTitle,
       startingBid: s.startingBid,
+      bidIncrement: s.bidIncrement,
       reservePrice: s.reservePrice,
       buyNowPrice: s.buyNowPrice,
       durationHours: s.durationHours,

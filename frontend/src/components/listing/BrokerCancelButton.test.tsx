@@ -98,6 +98,7 @@ function auctionFixture(
     status: "ACTIVE",
     verificationTier: "SCRIPT",
     startingBid: 1000,
+    bidIncrement: 100,
     hasReserve: false,
     reserveMet: false,
     buyNowPrice: null,
