@@ -73,11 +73,14 @@ public class AuctionPhotoService {
                 new ImageStorageContext(ImagePurpose.LISTING_PHOTO, keyWithoutExt));
 
         int nextSort = (int) currentCount + 1;
+        // Plan Task 1: this path still writes only the LIGHT variant. The
+        // dark sibling is added by AuctionPhotoDarkVariantController (Plan
+        // Task 7).
         AuctionPhoto photo = AuctionPhoto.builder()
                 .auction(auction)
-                .objectKey(stored.objectKey())
-                .contentType(stored.contentType())
-                .sizeBytes(stored.sizeBytes())
+                .lightObjectKey(stored.objectKey())
+                .lightContentType(stored.contentType())
+                .lightSizeBytes(stored.sizeBytes())
                 .sortOrder(nextSort)
                 .build();
         AuctionPhoto saved = photoRepo.save(photo);
@@ -100,14 +103,24 @@ public class AuctionPhotoService {
                     "Photo " + photoId + " does not belong to auction " + auctionId);
         }
         String expectedPrefix = "listings/" + auctionId + "/";
-        if (!photo.getObjectKey().startsWith(expectedPrefix)) {
+        if (!photo.getLightObjectKey().startsWith(expectedPrefix)) {
             throw new IllegalStateException(
-                    "Object key mismatch for photo " + photoId + ": " + photo.getObjectKey());
+                    "Object key mismatch for photo " + photoId + ": " + photo.getLightObjectKey());
         }
-        storage.delete(photo.getObjectKey());
+        storage.delete(photo.getLightObjectKey());
+        // Best-effort cleanup of the dark sibling if one was uploaded. The
+        // dark column is nullable; older rows pre-Task 7 will not have it.
+        if (photo.getDarkObjectKey() != null) {
+            try {
+                storage.delete(photo.getDarkObjectKey());
+            } catch (Exception e) {
+                log.warn("Failed to delete dark variant {} for photo {}: {}",
+                        photo.getDarkObjectKey(), photoId, e.getMessage());
+            }
+        }
         photoRepo.delete(photo);
-        log.info("Auction {} photo deleted: id={} key={}",
-                auctionId, photoId, photo.getObjectKey());
+        log.info("Auction {} photo deleted: id={} lightKey={} darkKey={}",
+                auctionId, photoId, photo.getLightObjectKey(), photo.getDarkObjectKey());
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +143,10 @@ public class AuctionPhotoService {
                 throw new AuctionNotFoundException(auctionId);
             }
         }
-        return storage.get(photo.getObjectKey());
+        // Plan Task 1: serves the LIGHT slot only. Plan Task 6 adds a
+        // variant path parameter so dark consumers can request the dark
+        // sibling when present.
+        return storage.get(photo.getLightObjectKey());
     }
 
     private static boolean isPreActive(AuctionStatus s) {

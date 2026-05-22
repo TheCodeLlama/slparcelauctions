@@ -34,14 +34,23 @@ public class AuctionPhoto extends BaseMutableEntity {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    @Column(name = "object_key", nullable = false, length = 500)
-    private String objectKey;
+    @Column(name = "light_object_key", nullable = false, length = 500)
+    private String lightObjectKey;
 
-    @Column(name = "content_type", nullable = false, length = 50)
-    private String contentType;
+    @Column(name = "light_content_type", nullable = false, length = 50)
+    private String lightContentType;
 
-    @Column(name = "size_bytes", nullable = false)
-    private Long sizeBytes;
+    @Column(name = "light_size_bytes", nullable = false)
+    private Long lightSizeBytes;
+
+    @Column(name = "dark_object_key", length = 500)
+    private String darkObjectKey;
+
+    @Column(name = "dark_content_type", length = 50)
+    private String darkContentType;
+
+    @Column(name = "dark_size_bytes")
+    private Long darkSizeBytes;
 
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;

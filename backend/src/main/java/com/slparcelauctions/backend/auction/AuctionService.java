@@ -49,7 +49,7 @@ public class AuctionService {
     private final BanCheckService banCheckService;
     private final ParcelLookupService parcelLookupService;
     private final ParcelSnapshotPhotoService parcelSnapshotPhotoService;
-    private final UserDefaultCoverPhotoService userDefaultCoverPhotoService;
+    private final DefaultCoverPhotoService defaultCoverPhotoService;
     private final CouponDiscountResolver couponDiscountResolver;
     private final ListingFeePaymentService listingFeePaymentService;
     private final Clock clock;
@@ -140,7 +140,7 @@ public class AuctionService {
         // Order matters: default cover claims sortOrder=0, then snapshot
         // claims the next available slot. Both are best-effort — failures
         // in either path log and continue without rolling back the auction.
-        userDefaultCoverPhotoService.applyTo(a);
+        defaultCoverPhotoService.applyTo(a);
         parcelSnapshotPhotoService.refreshFor(a, lookupResult.response().snapshotUrl());
         return a;
     }

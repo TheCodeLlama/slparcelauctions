@@ -21,9 +21,12 @@ export type GroupsSortKey =
  * Wire shape for one card on the public groups directory. Mirrors the backend
  * {@code RealtyGroupCardDto} record (spec section 6.1).
  *
- * {@code logoUrl} / {@code coverUrl} are relative paths — callers render via
- * {@code apiUrl(...)}. {@code tagline} is backend-truncated (120 chars +
- * ellipsis); the frontend renders it as-is.
+ * Logo + cover URLs ship as dual light/dark variants (plan
+ * `2026-05-21-theme-image-variants`); each is a relative path - callers
+ * render via {@code apiUrl(...)}. Either variant may be null; the
+ * {@code useThemedImage} helper picks the variant matching the active theme
+ * and falls back to the sibling slot. {@code tagline} is backend-truncated
+ * (120 chars + ellipsis); the frontend renders it as-is.
  *
  * No {@code hasVerifiedSlGroup} field: the browse endpoint filters unverified
  * groups server-side so the flag would always be true on the wire.
@@ -37,8 +40,10 @@ export interface BrowseGroupCard {
   name: string;
   slug: string;
   tagline: string;
-  logoUrl: string | null;
-  coverUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
+  coverLightUrl: string | null;
+  coverDarkUrl: string | null;
   foundedAt: string;
   memberCount: number;
   memberSeatLimit: number;

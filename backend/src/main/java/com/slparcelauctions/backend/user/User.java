@@ -71,17 +71,26 @@ public class User extends BaseMutableEntity {
     @Column(name = "profile_pic_url", columnDefinition = "text")
     private String profilePicUrl;
 
-    @Column(name = "default_cover_object_key", length = 500)
-    private String defaultCoverObjectKey;
+    @Column(name = "default_cover_light_object_key", length = 500)
+    private String defaultCoverLightObjectKey;
 
-    @Column(name = "default_cover_content_type", length = 100)
-    private String defaultCoverContentType;
+    @Column(name = "default_cover_light_content_type", length = 100)
+    private String defaultCoverLightContentType;
 
-    @Column(name = "default_cover_size_bytes")
-    private Long defaultCoverSizeBytes;
+    @Column(name = "default_cover_light_size_bytes")
+    private Long defaultCoverLightSizeBytes;
 
-    public boolean hasDefaultCover() {
-        return defaultCoverObjectKey != null;
+    @Column(name = "default_cover_dark_object_key", length = 500)
+    private String defaultCoverDarkObjectKey;
+
+    @Column(name = "default_cover_dark_content_type", length = 100)
+    private String defaultCoverDarkContentType;
+
+    @Column(name = "default_cover_dark_size_bytes")
+    private Long defaultCoverDarkSizeBytes;
+
+    public boolean hasAnyDefaultCover() {
+        return defaultCoverLightObjectKey != null || defaultCoverDarkObjectKey != null;
     }
 
     @Enumerated(EnumType.STRING)

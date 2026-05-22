@@ -416,11 +416,18 @@ public class AuctionDtoMapper {
         if (g == null) {
             return null;
         }
-        String logoUrl = g.getLogoObjectKey() == null
+        // Variant-aware logo URLs (plan Task 2). Either slot may be null
+        // when no upload exists for that variant; the frontend's ThemedImage
+        // helper falls back to whichever sibling is populated.
+        String logoLightUrl = g.getLogoLightObjectKey() == null
                 ? null
-                : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
+                : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=light";
+        String logoDarkUrl = g.getLogoDarkObjectKey() == null
+                ? null
+                : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image?variant=dark";
         return new GroupAttributionDto(
-                g.getPublicId(), g.getName(), g.getSlug(), logoUrl, g.getDissolvedAt() != null);
+                g.getPublicId(), g.getName(), g.getSlug(),
+                logoLightUrl, logoDarkUrl, g.getDissolvedAt() != null);
     }
 
     /**

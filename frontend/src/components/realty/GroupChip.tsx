@@ -1,6 +1,8 @@
-/* eslint-disable @next/next/no-img-element -- logo images are API-served binary content; next/image requires remotePatterns config */
+"use client";
+
 import Link from "next/link";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import { cn } from "@/lib/cn";
 
 export interface GroupChipProps {
@@ -9,10 +11,12 @@ export interface GroupChipProps {
   /** Display name rendered inside the chip. */
   groupName: string;
   /**
-   * Relative logo path (e.g. `/api/v1/realty-groups/{id}/logo`). Wrapped
-   * through {@link apiUrl} at render time. Null => initials fallback.
+   * Light logo variant (relative API path, e.g.
+   * `/api/v1/realty-groups/{id}/logo`). Null => initials fallback.
    */
-  logoUrl?: string | null;
+  logoLightUrl?: string | null;
+  /** Dark logo variant. Same convention as {@link logoLightUrl}. */
+  logoDarkUrl?: string | null;
   className?: string;
 }
 
@@ -29,17 +33,20 @@ function initials(name: string): string {
  * compact group reference. Renders as a Next.js {@link Link} pointing at
  * the group's public profile.
  *
- * Image bytes come from the backend; the relative path is funneled
- * through {@link apiUrl} so the browser hits the API origin rather than
- * the page origin (Amplify does not proxy `/api/*`).
+ * The logo is theme-aware via {@link ThemedImage}; it picks the variant
+ * matching the active theme and falls back to the sibling slot when only
+ * one was uploaded. Image bytes come from the backend; ThemedImage funnels
+ * the relative path through {@code apiUrl} so the browser hits the API
+ * origin rather than the page origin (Amplify does not proxy `/api/*`).
  */
 export function GroupChip({
   groupSlug,
   groupName,
-  logoUrl,
+  logoLightUrl,
+  logoDarkUrl,
   className,
 }: GroupChipProps) {
-  const resolvedLogo = apiUrl(logoUrl ?? null);
+  const hasLogo = useThemedImage(logoLightUrl, logoDarkUrl) !== null;
 
   return (
     <Link
@@ -50,9 +57,10 @@ export function GroupChip({
       )}
       data-testid="group-chip"
     >
-      {resolvedLogo ? (
-        <img
-          src={resolvedLogo}
+      {hasLogo ? (
+        <ThemedImage
+          lightSrc={logoLightUrl}
+          darkSrc={logoDarkUrl}
           alt=""
           width={16}
           height={16}

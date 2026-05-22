@@ -17,7 +17,7 @@ import lombok.Getter;
 @Getter
 public class RealtyGroupImageNotFoundException extends RuntimeException {
 
-    public enum Kind { LOGO, COVER }
+    public enum Kind { LOGO, COVER, DEFAULT_LISTING }
 
     private final UUID groupPublicId;
     private final Kind kind;

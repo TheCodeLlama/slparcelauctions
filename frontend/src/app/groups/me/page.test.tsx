@@ -25,7 +25,7 @@ describe("/groups/me", () => {
         publicId: "00000000-0000-0000-0000-000000000001",
         name: "Mainland Realty",
         slug: "mainland-realty",
-        logoUrl: null,
+        logoLightUrl: null, logoDarkUrl: null,
         memberCount: 4,
         memberSince: "2026-04-01T10:00:00Z",
       },

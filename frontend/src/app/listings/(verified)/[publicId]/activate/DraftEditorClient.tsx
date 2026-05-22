@@ -200,6 +200,7 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
           <div className="lg:col-span-8 space-y-8 lg:space-y-12">
             <EditablePhotoGallery
+              auctionPublicId={auction.publicId}
               photos={auction.photos}
               snapshotUrl={auction.parcel.snapshotUrl}
               regionName={auction.parcel.regionName}

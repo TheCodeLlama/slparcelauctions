@@ -24,11 +24,10 @@ describe("useReorderAuctionPhotos", () => {
         HttpResponse.json([
           {
             publicId: "p2",
-            url: "/api/v1/photos/p2",
-            contentType: "image/webp",
-            sizeBytes: 1,
+            lightUrl: "/api/v1/photos/p2?variant=light",
+            darkUrl: null,
+            source: "SELLER_UPLOAD",
             sortOrder: 1,
-            uploadedAt: "x",
           },
         ])),
     );

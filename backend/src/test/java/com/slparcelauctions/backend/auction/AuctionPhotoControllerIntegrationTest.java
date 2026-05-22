@@ -125,16 +125,21 @@ class AuctionPhotoControllerIntegrationTest {
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.publicId").exists())
-                // Post-chokepoint migration every raster lands as WebP.
-                .andExpect(jsonPath("$.contentType").value("image/webp"))
+                // Plan Task 6: DTO carries lightUrl + darkUrl. The light URL is
+                // always populated (the entity's light_object_key is NOT NULL);
+                // the dark URL is null until a dark sibling is uploaded.
+                .andExpect(jsonPath("$.lightUrl").value(
+                        org.hamcrest.Matchers.endsWith("?variant=light")))
+                .andExpect(jsonPath("$.darkUrl").doesNotExist())
+                .andExpect(jsonPath("$.source").value("SELLER_UPLOAD"))
                 .andExpect(jsonPath("$.sortOrder").value(1))
                 .andReturn();
 
         UUID photoPublicId = UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
                 .get("publicId").asText());
         AuctionPhoto saved = photoRepository.findByPublicId(photoPublicId).orElseThrow();
-        assertThat(saved.getObjectKey()).startsWith("listings/" + a.getId() + "/");
-        assertThat(saved.getObjectKey()).endsWith(".webp");
+        assertThat(saved.getLightObjectKey()).startsWith("listings/" + a.getId() + "/");
+        assertThat(saved.getLightObjectKey()).endsWith(".webp");
     }
 
     @Test
@@ -178,9 +183,9 @@ class AuctionPhotoControllerIntegrationTest {
         for (int i = 1; i <= 10; i++) {
             photoRepository.save(AuctionPhoto.builder()
                     .auction(a)
-                    .objectKey("listings/" + a.getId() + "/stub-" + i + ".png")
-                    .contentType("image/png")
-                    .sizeBytes(1L)
+                    .lightObjectKey("listings/" + a.getId() + "/stub-" + i + ".png")
+                    .lightContentType("image/png")
+                    .lightSizeBytes(1L)
                     .sortOrder(i)
                     .build());
         }
@@ -215,7 +220,7 @@ class AuctionPhotoControllerIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(photoRepository.findByPublicId(photoPublicId)).isEmpty();
-        assertThat(storage.exists(photo.getObjectKey())).isFalse();
+        assertThat(storage.exists(photo.getLightObjectKey())).isFalse();
     }
 
     @Test
@@ -271,8 +276,8 @@ class AuctionPhotoControllerIntegrationTest {
         java.util.List<UUID> publicIds = new ArrayList<>();
         for (int i = 1; i <= 3; i++) {
             AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
-                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+                    .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(i).build());
             publicIds.add(p.getPublicId());
         }
         java.util.List<UUID> reverseOrder = java.util.List.of(
@@ -299,8 +304,8 @@ class AuctionPhotoControllerIntegrationTest {
         java.util.List<UUID> publicIds = new ArrayList<>();
         for (int i = 1; i <= 2; i++) {
             AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
-                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+                    .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(i).build());
             publicIds.add(p.getPublicId());
         }
         java.util.List<UUID> withStray = java.util.List.of(
@@ -322,8 +327,8 @@ class AuctionPhotoControllerIntegrationTest {
     void reorder_activeAuction_returns409() throws Exception {
         Auction a = seedDraftAuction();
         AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+                .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-1.webp")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build());
         a.setStatus(AuctionStatus.ACTIVE);
         auctionRepository.save(a);
 
@@ -343,8 +348,8 @@ class AuctionPhotoControllerIntegrationTest {
     void reorder_anonymous_returns401() throws Exception {
         Auction a = seedDraftAuction();
         AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+                .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-1.webp")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build());
 
         String body = objectMapper.writeValueAsString(
                 java.util.Map.of("photoPublicIds", java.util.List.of(p.getPublicId())));
@@ -374,6 +379,77 @@ class AuctionPhotoControllerIntegrationTest {
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/webp"));
+    }
+
+    @Test
+    void getBytes_darkVariant_lightOnlyRow_returns404() throws Exception {
+        // Plan Task 6: a row without a dark sibling returns 404 when asked for
+        // the dark variant. The seller-upload path writes only the light slot
+        // (the dark sibling is added later via AuctionPhotoDarkVariantController
+        // in Plan Task 7); a fresh upload exercises the missing-dark branch.
+        Auction a = seedDraftAuction();
+        byte[] bytes = generateSimplePng();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "photo.png", "image/png", bytes);
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
+                .file(file)
+                .header("Authorization", "Bearer " + sellerAccessToken))
+                .andExpect(status().isCreated())
+                .andReturn();
+        UUID photoPublicId = UUID.fromString(objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("publicId").asText());
+
+        mockMvc.perform(get("/api/v1/photos/" + photoPublicId + "?variant=dark"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    void getBytes_darkVariant_bothSlotsPopulated_servesDarkBytes() throws Exception {
+        // Plan Task 6: when a row carries both variants the dark request must
+        // route through the dark object key. We seed the row directly with two
+        // distinct stored objects so we can assert the dark bytes by content
+        // type alone (the light slot writes image/webp; the dark seed writes
+        // image/png so the served Content-Type proves which key was hit).
+        Auction a = seedDraftAuction();
+        String lightKey = "listings/" + a.getId() + "/" + UUID.randomUUID() + ".webp";
+        String darkKey = "listings/" + a.getId() + "/" + UUID.randomUUID() + ".png";
+        byte[] lightBytes = generateSimplePng();
+        byte[] darkBytes = generateSimplePng();
+        storage.put(lightKey, lightBytes, "image/webp");
+        storage.put(darkKey, darkBytes, "image/png");
+        AuctionPhoto saved = photoRepository.save(AuctionPhoto.builder()
+                .auction(a)
+                .lightObjectKey(lightKey)
+                .lightContentType("image/webp")
+                .lightSizeBytes((long) lightBytes.length)
+                .darkObjectKey(darkKey)
+                .darkContentType("image/png")
+                .darkSizeBytes((long) darkBytes.length)
+                .sortOrder(1)
+                .build());
+
+        mockMvc.perform(get("/api/v1/photos/" + saved.getPublicId() + "?variant=dark"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+
+        // And the default (no query) keeps serving the light slot.
+        mockMvc.perform(get("/api/v1/photos/" + saved.getPublicId()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/webp"));
+    }
+
+    @Test
+    void getBytes_invalidVariant_returns400WithInvalidVariantCode() throws Exception {
+        // Plan Task 6: anything outside light/dark surfaces as INVALID_VARIANT
+        // so the frontend can distinguish a wire-shape mistake from a generic
+        // 400. We don't need a real photo row — the variant token is rejected
+        // before the repository is touched.
+        UUID someId = UUID.randomUUID();
+        mockMvc.perform(get("/api/v1/photos/" + someId + "?variant=sepia"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_VARIANT"))
+                .andExpect(jsonPath("$.value").value("sepia"));
     }
 
     // -------------------------------------------------------------------------

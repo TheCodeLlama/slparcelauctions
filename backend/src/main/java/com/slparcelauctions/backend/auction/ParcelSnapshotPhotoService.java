@@ -69,11 +69,12 @@ public class ParcelSnapshotPhotoService {
 
         String objectKey;
         if (photo != null) {
-            // Update existing
-            photo.setContentType(CONTENT_TYPE);
-            photo.setSizeBytes((long) bytes.length);
+            // Update existing — snapshot service only manages the LIGHT slot
+            // (SL World API has no awareness of theme variants).
+            photo.setLightContentType(CONTENT_TYPE);
+            photo.setLightSizeBytes((long) bytes.length);
             photo.setUploadedAt(OffsetDateTime.now());
-            objectKey = photo.getObjectKey();
+            objectKey = photo.getLightObjectKey();
             photo = photoRepo.save(photo);
         } else {
             // Insert new — claim the next-available sortOrder. Empty auction =>
@@ -84,9 +85,9 @@ public class ParcelSnapshotPhotoService {
             objectKey = "listings/" + auction.getId() + "/sl-snapshot.jpg";
             photo = AuctionPhoto.builder()
                     .auction(auction)
-                    .objectKey(objectKey)
-                    .contentType(CONTENT_TYPE)
-                    .sizeBytes((long) bytes.length)
+                    .lightObjectKey(objectKey)
+                    .lightContentType(CONTENT_TYPE)
+                    .lightSizeBytes((long) bytes.length)
                     .sortOrder(sortOrder)
                     .source(PhotoSource.SL_PARCEL_SNAPSHOT)
                     .build();

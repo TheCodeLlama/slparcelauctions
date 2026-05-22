@@ -88,8 +88,10 @@ export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
           website={group.website}
           memberSince={group.memberSince}
           memberCount={group.memberCount}
-          coverUrl={group.coverUrl}
-          logoUrl={group.logoUrl}
+          coverLightUrl={group.coverLightUrl}
+          coverDarkUrl={group.coverDarkUrl}
+          logoLightUrl={group.logoLightUrl}
+          logoDarkUrl={group.logoDarkUrl}
         />
       </div>
 

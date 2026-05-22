@@ -8,12 +8,19 @@ export type CurrentUser = {
   bio: string | null;
   profilePicUrl: string | null;
   /**
-   * Relative URL to the user's default cover image, or null when unset.
-   * Backed by a public proxy endpoint so {@code <img src>} renders without
-   * the JWT. Auto-inserted as the first photo of every new listing the
-   * user creates after setting it.
+   * Relative URL to the light-theme variant of the user's default cover
+   * image, or null when that slot is unset. Backed by a public proxy
+   * endpoint so {@code <img src>} renders without the JWT. Auto-inserted
+   * as the first photo of every new listing the user creates after
+   * setting it.
    */
-  defaultCoverUrl: string | null;
+  defaultCoverLightUrl: string | null;
+  /**
+   * Relative URL to the dark-theme variant of the user's default cover
+   * image, or null when that slot is unset. Same proxy semantics as
+   * {@code defaultCoverLightUrl}.
+   */
+  defaultCoverDarkUrl: string | null;
   slAvatarUuid: string | null;
   slAvatarName: string | null;
   slUsername: string | null;
@@ -122,19 +129,16 @@ export const userApi = {
     api.get<PublicUserProfile>(`/api/v1/users/${publicId}`),
   deleteSelf: (password: string): Promise<void> =>
     api.delete("/api/v1/users/me", { body: { password } }),
-  uploadDefaultCover: (file: File) => {
+  uploadDefaultCover: (variant: "light" | "dark", file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return api.put<DefaultCoverDto>("/api/v1/users/me/default-cover", form);
+    return api.post<CurrentUser>(
+      `/api/v1/users/me/default-cover/${variant}`,
+      form,
+    );
   },
-  deleteDefaultCover: (): Promise<void> =>
-    api.delete("/api/v1/users/me/default-cover"),
-};
-
-export type DefaultCoverDto = {
-  url: string;
-  contentType: string;
-  sizeBytes: number;
+  deleteDefaultCover: (variant: "light" | "dark") =>
+    api.delete<CurrentUser>(`/api/v1/users/me/default-cover/${variant}`),
 };
 
 export const onboardingApi = {

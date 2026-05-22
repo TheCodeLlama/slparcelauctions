@@ -15,11 +15,15 @@ import java.util.UUID;
  * sourced the rate from the public group DTO. If the caller has no member row for
  * the group (defensive edge case) the rate is {@link BigDecimal#ZERO} so the preview
  * still renders.
+ *
+ * <p>Logo URLs are dual light/dark (plan Task 2). Either may be {@code null}
+ * when no upload exists for that variant.
  */
 public record ListingEligibleGroupDto(
         UUID publicId,
         String name,
         String slug,
-        String logoUrl,
+        String logoLightUrl,
+        String logoDarkUrl,
         BigDecimal agentCommissionRate) {
 }

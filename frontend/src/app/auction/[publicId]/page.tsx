@@ -38,7 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // (typical gallery is 1-5 photos) and keeps us aligned with the
     // AuctionHero's ordering.
     const primaryPhoto =
-      [...a.photos].sort((p, q) => p.sortOrder - q.sortOrder)[0]?.url ?? null;
+      [...a.photos].sort((p, q) => p.sortOrder - q.sortOrder)[0]?.lightUrl ??
+      null;
     const og = primaryPhoto ?? a.parcel.snapshotUrl ?? undefined;
     const currentBidDisplay =
       typeof a.currentBid === "number" ? a.currentBid.toLocaleString() : "-";

@@ -139,8 +139,12 @@ class RealtyGroupBrowseServiceTest {
             public String getName() { return name; }
             public String getSlug() { return name; }
             public String getDescription() { return description; }
-            public String getLogoObjectKey() { return null; }
-            public String getCoverObjectKey() { return null; }
+            public String getLogoLightObjectKey() { return null; }
+            public String getLogoDarkObjectKey() { return null; }
+            public String getCoverLightObjectKey() { return null; }
+            public String getCoverDarkObjectKey() { return null; }
+            public String getDefaultListingLightObjectKey() { return null; }
+            public String getDefaultListingDarkObjectKey() { return null; }
             public Instant getCreatedAt() {
                 return Instant.parse("2026-01-01T00:00:00Z");
             }

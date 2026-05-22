@@ -17,10 +17,11 @@ import java.util.UUID;
  *
  * <p>Note on image columns: the plan/spec calls these {@code logoUrl} /
  * {@code coverUrl}, but the actual schema stores object keys
- * ({@code logo_object_key} / {@code cover_object_key}) and the URLs are
- * computed at DTO-mapping time via the pattern in {@code RealtyGroupDtoMapper}
- * ({@code /api/v1/realty-groups/{publicId}/logo/image} etc). The projection
- * carries the raw object keys; the browse service builds the URL.
+ * ({@code logo_light_object_key} / {@code cover_light_object_key} plus their
+ * {@code _dark_} siblings and the {@code default_listing_*} pair) and the
+ * URLs are computed at DTO-mapping time via the pattern in
+ * {@code RealtyGroupDtoMapper} ({@code /api/v1/realty-groups/{publicId}/logo/image}
+ * etc). The projection carries the raw object keys; the browse service builds the URL.
  *
  * <p>Note on {@code memberCount}: until {@code realty_groups.member_count} is
  * denormalised (plan Task 7), the SQL computes the count via a correlated
@@ -31,8 +32,12 @@ public interface RealtyGroupCardProjection {
     String getName();
     String getSlug();
     String getDescription();
-    String getLogoObjectKey();
-    String getCoverObjectKey();
+    String getLogoLightObjectKey();
+    String getLogoDarkObjectKey();
+    String getCoverLightObjectKey();
+    String getCoverDarkObjectKey();
+    String getDefaultListingLightObjectKey();
+    String getDefaultListingDarkObjectKey();
     Instant getCreatedAt();
     int getMemberCount();
     int getMemberSeatLimit();

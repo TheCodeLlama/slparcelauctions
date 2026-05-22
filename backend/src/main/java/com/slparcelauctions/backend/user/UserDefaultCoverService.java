@@ -3,12 +3,12 @@ package com.slparcelauctions.backend.user;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.slparcelauctions.backend.common.image.ImageVariant;
 import com.slparcelauctions.backend.storage.ImagePurpose;
 import com.slparcelauctions.backend.storage.ImageStorageContext;
 import com.slparcelauctions.backend.storage.ImageStorageService;
@@ -22,12 +22,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * CRUD orchestrator for the per-user default cover image. Stores bytes at
- * {@code users/{userId}/default-cover-{uuid}.{ext}} and three columns on
- * {@code users}: {@code default_cover_object_key}, {@code _content_type},
- * {@code _size_bytes}. Replacement uploads delete the prior object after
- * the new one is durably stored; replace-time delete failures are logged
- * but never fail the call (the new key is already on the row).
+ * CRUD orchestrator for the per-user default cover image. Each operation is
+ * variant-aware ({@link ImageVariant#LIGHT light} / {@link ImageVariant#DARK
+ * dark}) so the controllers stay thin HTTP shims that parse the variant token
+ * and delegate here.
+ *
+ * <p>Storage keys: {@code users/{userPublicId}/default-cover-{variant}.webp}.
+ * Each upload overwrites the same key for its (user, variant) tuple. The
+ * trailing {@code .webp} suffix is appended by {@link ImageStorageService};
+ * the keyWithoutExt passed in does not include it.
+ *
+ * <p>Each variant column trio ({@code default_cover_{light,dark}_object_key},
+ * {@code _content_type}, {@code _size_bytes}) is written/cleared atomically
+ * inside one transaction so the entity row never disagrees with what the
+ * controller-emitted DTO claims is on disk. Storage deletes are best-effort —
+ * a stale object orphaned by an S3 failure is acceptable; the row already
+ * forgets the key.
  *
  * <p>Re-encodes via the central {@link ImageStorageService} chokepoint so
  * raster uploads are converted to WebP and EXIF / IPTC metadata is
@@ -45,7 +55,7 @@ public class UserDefaultCoverService {
     private final ImageStorageService imageStorage;
 
     @Transactional
-    public UserDefaultCoverDto upload(Long userId, MultipartFile file) {
+    public UserDefaultCoverDto upload(Long userId, ImageVariant variant, MultipartFile file) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -57,20 +67,23 @@ public class UserDefaultCoverService {
                     "Failed to read upload: " + e.getMessage(), e);
         }
 
-        // Build the key sans extension; the chokepoint appends .webp.
-        String oldKey = user.getDefaultCoverObjectKey();
-        String keyWithoutExt = "users/" + userId + "/default-cover-" + UUID.randomUUID();
+        String oldKey = readObjectKey(user, variant);
+        // Per-variant slot keyed by public UUID + variant slug; no UUID suffix
+        // because uploads overwrite the same slot. Chokepoint appends .webp.
+        String keyWithoutExt = "users/" + user.getPublicId() + "/default-cover-" + variant.slug();
 
         StoredImage stored = imageStorage.storeImage(
                 new ByteArrayInputStream(bytes),
                 new ImageStorageContext(ImagePurpose.DEFAULT_COVER, keyWithoutExt));
 
-        user.setDefaultCoverObjectKey(stored.objectKey());
-        user.setDefaultCoverContentType(stored.contentType());
-        user.setDefaultCoverSizeBytes(stored.sizeBytes());
+        writeSlot(user, variant, stored.objectKey(), stored.contentType(), stored.sizeBytes());
         // JPA dirty checking flushes setters on transaction commit.
 
-        if (oldKey != null) {
+        // Idempotent overwrite — the new key equals the old key when the
+        // variant slot was previously populated. Only call delete if the
+        // prior column referenced a *different* key (legacy rows with the
+        // old UUID-suffixed naming still need one final purge).
+        if (oldKey != null && !oldKey.equals(stored.objectKey())) {
             try {
                 storage.delete(oldKey);
             } catch (Exception e) {
@@ -79,58 +92,92 @@ public class UserDefaultCoverService {
             }
         }
 
-        log.info("User {} default cover updated: key={} ({} bytes)",
-                userId, stored.objectKey(), stored.sizeBytes());
+        log.info("User {} default cover {} updated: key={} ({} bytes)",
+                userId, variant.slug(), stored.objectKey(), stored.sizeBytes());
         return new UserDefaultCoverDto(
                 presign(stored.objectKey()), stored.contentType(), stored.sizeBytes());
     }
 
     /**
      * Fetches the raw default-cover bytes for the public {@code GET
-     * /api/v1/users/{publicId}/default-cover/image} endpoint. Throws
-     * {@link UserDefaultCoverNotFoundException} if the user has no cover
-     * set; that maps to 404 via the global handler.
+     * /api/v1/users/{publicId}/default-cover/image?variant=...} endpoint.
+     * Throws {@link UserDefaultCoverNotFoundException} if the user has no
+     * cover set in the requested variant slot; that maps to 404 via the
+     * global handler.
      */
     @Transactional(readOnly = true)
-    public StoredObject fetchBytes(Long userId) {
+    public StoredObject fetchBytes(Long userId, ImageVariant variant) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        if (user.getDefaultCoverObjectKey() == null) {
+        String key = readObjectKey(user, variant);
+        if (key == null) {
             throw new UserDefaultCoverNotFoundException(userId);
         }
-        return storage.get(user.getDefaultCoverObjectKey());
+        return storage.get(key);
     }
 
     @Transactional(readOnly = true)
-    public UserDefaultCoverDto get(Long userId) {
+    public UserDefaultCoverDto get(Long userId, ImageVariant variant) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        if (user.getDefaultCoverObjectKey() == null) {
+        String key = readObjectKey(user, variant);
+        if (key == null) {
             throw new UserDefaultCoverNotFoundException(userId);
         }
         return new UserDefaultCoverDto(
-                presign(user.getDefaultCoverObjectKey()),
-                user.getDefaultCoverContentType(),
-                user.getDefaultCoverSizeBytes());
+                presign(key),
+                readContentType(user, variant),
+                readSizeBytes(user, variant));
     }
 
     @Transactional
-    public void delete(Long userId) {
+    public void delete(Long userId, ImageVariant variant) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        String key = user.getDefaultCoverObjectKey();
+        String key = readObjectKey(user, variant);
         if (key == null) {
             return;
         }
-        user.setDefaultCoverObjectKey(null);
-        user.setDefaultCoverContentType(null);
-        user.setDefaultCoverSizeBytes(null);
+        writeSlot(user, variant, null, null, null);
         try {
             storage.delete(key);
         } catch (Exception e) {
             log.warn("Failed to delete S3 object {} for user {}: {}", key, userId, e.getMessage());
         }
-        log.info("User {} default cover removed (was key={})", userId, key);
+        log.info("User {} default cover {} removed (was key={})", userId, variant.slug(), key);
+    }
+
+    // ─────────────────────── slot helpers ───────────────────────
+
+    private static String readObjectKey(User user, ImageVariant variant) {
+        return variant == ImageVariant.LIGHT
+                ? user.getDefaultCoverLightObjectKey()
+                : user.getDefaultCoverDarkObjectKey();
+    }
+
+    private static String readContentType(User user, ImageVariant variant) {
+        return variant == ImageVariant.LIGHT
+                ? user.getDefaultCoverLightContentType()
+                : user.getDefaultCoverDarkContentType();
+    }
+
+    private static Long readSizeBytes(User user, ImageVariant variant) {
+        return variant == ImageVariant.LIGHT
+                ? user.getDefaultCoverLightSizeBytes()
+                : user.getDefaultCoverDarkSizeBytes();
+    }
+
+    private static void writeSlot(User user, ImageVariant variant,
+                                   String objectKey, String contentType, Long sizeBytes) {
+        if (variant == ImageVariant.LIGHT) {
+            user.setDefaultCoverLightObjectKey(objectKey);
+            user.setDefaultCoverLightContentType(contentType);
+            user.setDefaultCoverLightSizeBytes(sizeBytes);
+        } else {
+            user.setDefaultCoverDarkObjectKey(objectKey);
+            user.setDefaultCoverDarkContentType(contentType);
+            user.setDefaultCoverDarkSizeBytes(sizeBytes);
+        }
     }
 
     private String presign(String key) {

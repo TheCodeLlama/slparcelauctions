@@ -163,7 +163,7 @@ class AuctionDtoMapperTest {
                 .id(10L)
                 .name("Mainland Realty Co")
                 .slug("mainland-realty-co")
-                .logoObjectKey("logos/10/logo.webp")
+                .logoLightObjectKey("logos/10/logo.webp")
                 .memberSeatLimit(50)
                 .build();
         // Override auto-generated publicId via reflection would be complex; use the
@@ -184,8 +184,9 @@ class AuctionDtoMapperTest {
         assertThat(dto.realtyGroup()).isNotNull();
         assertThat(dto.realtyGroup().name()).isEqualTo("Mainland Realty Co");
         assertThat(dto.realtyGroup().slug()).isEqualTo("mainland-realty-co");
-        assertThat(dto.realtyGroup().logoUrl()).startsWith("/api/v1/realty-groups/");
-        assertThat(dto.realtyGroup().logoUrl()).endsWith("/logo/image");
+        // Variant-aware logo URLs (plan Task 2).
+        assertThat(dto.realtyGroup().logoLightUrl()).startsWith("/api/v1/realty-groups/");
+        assertThat(dto.realtyGroup().logoLightUrl()).endsWith("/logo/image?variant=light");
         assertThat(dto.realtyGroup().dissolved()).isFalse();
         assertThat(dto.listingAgent()).isNotNull();
         assertThat(dto.listingAgent().displayName()).isEqualTo("Alice Agent");
