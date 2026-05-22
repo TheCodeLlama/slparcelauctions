@@ -36,7 +36,10 @@ class EscrowStartupValidatorTest {
                 null, // buyParcelFastCadence
                 null, // buyParcelFastWindow
                 null, // buyParcelSlowCadence
-                null); // manualVerifyAttempts
+                null, // manualVerifyAttempts
+                null, // transferDeadlineHours
+                null, // disputeMaxImagesPerSide
+                null); // disputeMaxImageBytes
     }
 
     @Test

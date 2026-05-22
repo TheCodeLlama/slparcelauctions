@@ -192,9 +192,9 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         assertThat(escrow.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(currentBid);
         assertThat(escrow.getCommissionAmt())
-                .isEqualTo(commissionCalculator.commission(currentBid));
+                .isEqualTo(commissionCalculator.commission(currentBid, new java.math.BigDecimal("0.0500")));
         assertThat(escrow.getPayoutAmt())
-                .isEqualTo(commissionCalculator.payout(currentBid));
+                .isEqualTo(commissionCalculator.payout(currentBid, new java.math.BigDecimal("0.0500")));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
         // transferDeadline = fundedAt + 72h; both stamped during auto-fund.
         assertThat(escrow.getFundedAt()).isNotNull();

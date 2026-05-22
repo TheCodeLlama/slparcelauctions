@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.escrow.dispute;
 import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceImageContentTypeException;
 import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceImageTooLargeException;
 import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceTooManyImagesException;
+import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.storage.ImagePurpose;
 import com.slparcelauctions.backend.storage.ImageStorageContext;
 import com.slparcelauctions.backend.storage.ImageStorageService;
@@ -33,11 +34,20 @@ class DisputeEvidenceUploadServiceTest {
     private Clock fixedClock;
     private DisputeEvidenceUploadService service;
 
+    /** Escrow config with the dispute-cap defaults (5 images / 5 MiB) filled
+     *  in by the record's compact constructor. */
+    private static EscrowConfigProperties defaultEscrowConfig() {
+        return new EscrowConfigProperties("dispute-evidence-test-secret",
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null);
+    }
+
     @BeforeEach
     void setUp() {
         imageStorage = mock(ImageStorageService.class);
         fixedClock = Clock.fixed(Instant.parse("2026-04-27T12:00:00Z"), ZoneOffset.UTC);
-        service = new DisputeEvidenceUploadService(imageStorage, fixedClock);
+        service = new DisputeEvidenceUploadService(
+                imageStorage, fixedClock, defaultEscrowConfig());
     }
 
     /** Echoes the caller's key + ".webp" as if the chokepoint encoded

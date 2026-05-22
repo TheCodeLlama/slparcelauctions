@@ -120,6 +120,11 @@ slpa:
     amount-lindens: 100
   commission:
     default-rate: 0.05
+    # Minimum commission charged on any sale, in L$. Auctions closing below
+    # L$1,000 hit this floor and pay a disproportionate commission - intentional
+    # per DESIGN.md to discourage micro-auctions. The rate above is snapshotted
+    # per-auction (coupons may lower it); this floor is global.
+    minimum-lindens: 50
   cancellation:
     # Epic 08 sub-spec 2 §2 — cancellation-penalty ladder. Applied only when
     # an ACTIVE auction with at least one bid is cancelled. Walking the ladder
@@ -172,6 +177,18 @@ slpa:
     buy-parcel-fast-window: PT1H
     buy-parcel-slow-cadence: PT30M
     manual-verify-attempts: 3
+    # Window a winning buyer has to complete the in-world parcel transfer
+    # after auction end. Re-stamped fresh when Set-Sell-To is confirmed so the
+    # Buy-Parcel sub-step gets the full window. A core escrow SLA.
+    transfer-deadline-hours: 72
+    # Backoff ladder for terminal-command retries. After the last entry is
+    # exhausted the command stalls for manual review (max attempts = size + 1).
+    # Both the transport-failure and terminal-reported-failure paths share it.
+    command-retry-backoffs: PT1M,PT5M,PT15M
+    # Escrow dispute evidence upload caps, per side (winner / seller). Mirrors
+    # the support-ticket attachment caps. dispute-max-image-bytes is 5 MiB.
+    dispute-max-images-per-side: 5
+    dispute-max-image-bytes: 5242880
     # --- Scheduled job cadences (Tasks 6/7/8/9 wire the actual jobs) ---
     timeout-job:
       enabled: true

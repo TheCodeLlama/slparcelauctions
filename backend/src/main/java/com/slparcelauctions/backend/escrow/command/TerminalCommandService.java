@@ -82,6 +82,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.wallet.WalletService walletService;
     private final RealtyGroupRepository realtyGroupRepository;
     private final AuctionStatusFlipper statusFlipper;
+    private final EscrowRetryPolicy retryPolicy;
 
     /**
      * Runs the escrow-payout success path inline. No terminal round-trip
@@ -255,13 +256,13 @@ public class TerminalCommandService {
             }
 
             cmd.setLastError(req.errorMessage());
-            if (cmd.getAttemptCount() < EscrowRetryPolicy.MAX_ATTEMPTS) {
+            if (cmd.getAttemptCount() < retryPolicy.maxAttempts()) {
                 cmd.setStatus(TerminalCommandStatus.FAILED);
                 cmd.setNextAttemptAt(now.plus(
-                        EscrowRetryPolicy.backoffFor(cmd.getAttemptCount())));
+                        retryPolicy.backoffFor(cmd.getAttemptCount())));
                 cmd = cmdRepo.save(cmd);
                 log.warn("Terminal command {} callback reported failure: attempt {}/{}, nextAttemptAt={}, err={}",
-                        cmd.getId(), cmd.getAttemptCount(), EscrowRetryPolicy.MAX_ATTEMPTS,
+                        cmd.getId(), cmd.getAttemptCount(), retryPolicy.maxAttempts(),
                         cmd.getNextAttemptAt(), req.errorMessage());
             } else {
                 cmd.setStatus(TerminalCommandStatus.FAILED);
