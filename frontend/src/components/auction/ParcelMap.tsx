@@ -145,7 +145,7 @@ export function ParcelMap({ publicId, className }: Props) {
         tabIndex={0}
         role="application"
         aria-label="Region parcel and elevation map, 64 by 64 cells"
-        className="aspect-square w-full max-w-[320px] rounded-md border border-border-subtle [image-rendering:pixelated]"
+        className="aspect-square w-full max-w-[320px] border border-border-subtle [image-rendering:pixelated]"
         onMouseMove={(e) => setHover(cellInfoForEvent(e, decoded, figureRef.current))}
         onMouseLeave={() => setHover(null)}
         onKeyDown={(e) => {
@@ -160,6 +160,7 @@ export function ParcelMap({ publicId, className }: Props) {
         Parcel covers {stats.parcelCellCount * 16} m². Elevation
         {" "}{stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
       </figcaption>
+      <ParcelMapLegend />
       {hover && <ParcelMapTooltip {...hover.cellInfo} pixelX={hover.pixelX} pixelY={hover.pixelY} />}
       <div role="status" aria-live="polite" className="sr-only">
         {liveAnnouncement}
@@ -308,6 +309,36 @@ function moveFocus(
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
+}
+
+function ParcelMapLegend() {
+  // Linear gradient mirroring the 3-stop gradient used in colors.ts:
+  //   green at delta=0 (parcel low point)
+  //   yellow at delta=4 m (SL terraforming raise/lower limit)
+  //   red at delta=8+ m (un-flattenable spread)
+  // RGB literals rather than #hex keep the no-hex-colors verify guard green.
+  const stop = (c: { r: number; g: number; b: number }, pct: number) =>
+    `rgb(${c.r}, ${c.g}, ${c.b}) ${pct}%`;
+  const gradient = `linear-gradient(to right, ${stop(MAP_COLORS.green, 0)}, ${stop(MAP_COLORS.yellow, 50)}, ${stop(MAP_COLORS.red, 100)})`;
+  return (
+    <div className="w-full max-w-[320px] flex flex-col gap-1">
+      <div
+        style={{ background: gradient }}
+        className="h-2 w-full border border-border-subtle"
+        aria-hidden="true"
+      />
+      <div className="flex justify-between text-[10px] text-fg-muted">
+        <span>0 m</span>
+        <span>+4 m</span>
+        <span>+8 m+</span>
+      </div>
+      <p className="text-[10px] text-fg-muted">
+        Color = elevation above the parcel&apos;s lowest cell.
+        +4 m is the SL terraforming raise/lower limit; +8 m+ is
+        un-flattenable spread.
+      </p>
+    </div>
+  );
 }
 
 function ParcelMapTooltip({ row, col, elevM, inParcel, pixelX, pixelY }: CellInfo & { pixelX: number; pixelY: number }) {
