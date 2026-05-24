@@ -77,9 +77,9 @@ describe("ParcelMap", () => {
     );
     wrap(<ParcelMap publicId={publicId} />);
     expect(await screen.findByRole("application")).toBeInTheDocument();
-    const fig = screen.getByText(/Parcel covers 1 of 4096 cells/i);
+    const fig = screen.getByText(/Parcel covers 16 m/i);
     expect(fig).toBeInTheDocument();
-    expect(fig.textContent).toMatch(/Elevation range 22\.0 m to 22\.0 m/);
+    expect(fig.textContent).toMatch(/Elevation 22\.0 m to 22\.0 m/);
   });
 
   it("ArrowRight from initial focus (32, 32) moves to (32, 33) and updates the aria-live region", async () => {
@@ -93,7 +93,8 @@ describe("ParcelMap", () => {
     const live = screen
       .getAllByRole("status")
       .find((n) => n.getAttribute("aria-live") === "polite");
-    expect(live?.textContent).toMatch(/Cell 32, 33/);
+    // col 33 * 4 = 132 (x, east), row 32 * 4 = 128 (y, north)
+    expect(live?.textContent).toMatch(/Position 132, 128/);
     expect(live?.textContent).toMatch(/in parcel/);
   });
 });
