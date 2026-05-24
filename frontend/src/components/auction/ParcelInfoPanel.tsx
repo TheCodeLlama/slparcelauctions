@@ -15,6 +15,7 @@ import { VisitInSecondLifeButton } from "./VisitInSecondLifeButton";
 import { EditableTitle } from "@/components/listing/draft-editor/EditableTitle";
 import { EditableDescription } from "@/components/listing/draft-editor/EditableDescription";
 import { EditableTags } from "@/components/listing/draft-editor/EditableTags";
+import { ParcelMap } from "@/components/auction/ParcelMap";
 
 /**
  * Optional editor wiring for the seller's draft preview on
@@ -205,6 +206,7 @@ export function ParcelInfoPanel({ auction, className, reportButton, editable }: 
         )
       )}
 
+      <ParcelMap publicId={auction.publicId} />
     </section>
   );
 }

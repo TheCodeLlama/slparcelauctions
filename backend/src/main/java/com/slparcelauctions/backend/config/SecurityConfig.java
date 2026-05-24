@@ -182,6 +182,13 @@ public class SecurityConfig {
                         // order is first-match-wins, so this rule MUST sit
                         // before /api/v1/**.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/rails/*").permitAll()
+                        // Public parcel-scan raster (parcel-map-frontend spec
+                        // 2026-05-24). Rasters are immutable per-auction
+                        // records; anonymous read is safe. Multi-segment path
+                        // requires its own explicit matcher -- single-segment
+                        // "*" below does not match. FOOTGUNS §B.5: must sit
+                        // BEFORE the /api/v1/auctions/* catch-all below.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/parcel-scan").permitAll()
                         // Public auction detail (Epic 04). The controller
                         // hides DRAFT/DRAFT_PAID/VERIFICATION_PENDING/
                         // VERIFICATION_FAILED/SUSPENDED via 404 for non-
