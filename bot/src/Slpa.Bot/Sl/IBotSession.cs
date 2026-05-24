@@ -1,6 +1,15 @@
 namespace Slpa.Bot.Sl;
 
 /// <summary>
+/// Carries both the sampled height grid and a per-cell loaded flag from
+/// <see cref="IBotSession.GetRegionTerrainHeights"/>. A cell where
+/// <c>Loaded[row, col]</c> is <c>false</c> means
+/// <c>TerrainHeightAtPoint</c> returned <c>false</c> for that coordinate;
+/// the corresponding <c>Heights</c> value is 0 and must not be trusted.
+/// </summary>
+public sealed record RegionTerrainHeights(float[,] Heights, bool[,] Loaded);
+
+/// <summary>
 /// Test boundary around LibreMetaverse. Production wiring uses
 /// <see cref="LibreMetaverseBotSession"/>; tests fake this interface and
 /// never touch <c>GridClient</c>.
@@ -95,7 +104,21 @@ public interface IBotSession : IAsyncDisposable
     /// Returns a 64x64 grid of terrain heights (metres) for the current
     /// simulator, center-sampled at 4 m cell resolution (i.e. cell [row, col]
     /// is sampled at the terrain height at world x = col*4+2, y = row*4+2).
-    /// Returns an all-zero grid if no terrain data is available.
+    /// The <c>Loaded</c> grid indicates which cells were successfully read from
+    /// the simulator's heightmap; cells where <c>Loaded[row, col]</c> is
+    /// <c>false</c> have a height of 0 and must not be used. Call
+    /// <see cref="WaitForRegionTerrainAsync"/> first so that patches are
+    /// available before sampling.
     /// </summary>
-    float[,] GetRegionTerrainHeights();
+    RegionTerrainHeights GetRegionTerrainHeights();
+
+    /// <summary>
+    /// Waits for the simulator's terrain patches to finish streaming in.
+    /// Returns the number of patches received (0..256). A full standard SL
+    /// region has 16x16 = 256 patches of 16x16 m each. Times out after 30 s;
+    /// on timeout returns whatever count was received so far so the caller can
+    /// decide whether to proceed or fail. Hooks LibreMetaverse's
+    /// <c>Terrain.LandPatchReceived</c> event; thread-safe.
+    /// </summary>
+    Task<int> WaitForRegionTerrainAsync(CancellationToken ct);
 }

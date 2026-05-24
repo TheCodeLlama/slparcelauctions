@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.slparcelauctions.backend.auction.parcelscan.ParcelScanService;
 import com.slparcelauctions.backend.auction.parcelscan.dto.BotScanResultRequest;
+import com.slparcelauctions.backend.bot.dto.BotScanFailedRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
 import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
@@ -93,5 +94,18 @@ public class BotTaskController {
             @Valid @RequestBody BotScanResultRequest body) {
         parcelScanService.applyScanResult(taskId, body);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Bot {@code SCAN_PARCEL} failure callback. Marks the task FAILED with the
+     * supplied reason so the admin panel can surface why the scan did not
+     * complete (e.g. {@code TERRAIN_NOT_LOADED}). Returns 409 if the task is
+     * already in a terminal state or is not of type SCAN_PARCEL.
+     */
+    @PostMapping("/{taskId}/scan-failed")
+    public ResponseEntity<Void> scanFailed(@PathVariable Long taskId,
+            @Valid @RequestBody BotScanFailedRequest body) {
+        parcelScanService.markScanFailed(taskId, body.reason());
+        return ResponseEntity.noContent().build();
     }
 }
