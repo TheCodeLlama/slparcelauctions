@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderWithProviders, screen } from "@/test/render";
 import type { PublicAuctionResponse } from "@/types/auction";
 import { ParcelInfoPanel } from "./ParcelInfoPanel";
+import * as parcelScanHook from "@/hooks/useParcelScan";
 
 function publicAuctionFixture(
   overrides: Partial<PublicAuctionResponse> = {},
@@ -227,5 +228,21 @@ describe("ParcelInfoPanel", () => {
       <ParcelInfoPanel auction={publicAuctionFixture()} />,
     );
     expect(screen.getByText("Visit in Second Life")).toBeInTheDocument();
+  });
+
+  it("mounts ParcelMap with the auction's publicId", () => {
+    const useParcelScanSpy = vi
+      .spyOn(parcelScanHook, "useParcelScan")
+      .mockReturnValue({
+        data: null,
+        isPending: false,
+        isError: false,
+      } as ReturnType<typeof parcelScanHook.useParcelScan>);
+    renderWithProviders(
+      <ParcelInfoPanel auction={publicAuctionFixture()} />,
+    );
+    expect(useParcelScanSpy).toHaveBeenCalledWith(
+      "00000000-0000-0000-0000-000000000007",
+    );
   });
 });

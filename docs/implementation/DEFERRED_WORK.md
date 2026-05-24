@@ -178,11 +178,16 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   (frontend rendering, periodic rescans, paid-upgrade entitlement, admin GET,
   LSL fallback, bot failure-result endpoint).
 
-### Parcel scanner: frontend raster rendering
+### Parcel scanner: frontend raster rendering -- RESOLVED (2026-05-24)
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
 - **Why:** Rendering either raster (layout bitmap or heightmap) on the listing detail page requires a dedicated frontend design pass (canvas vs. SVG, interactive cell hover, colour mapping). Out of scope for the initial scanner implementation.
 - **When:** Indefinite — pull in when a frontend design is approved.
 - **Notes:** Backend stores the rasters as `auction_parcel_layouts.layout_cells` (BYTEA, 512 bytes) and `auction_parcel_height_maps.height_cells` (BYTEA, 4096 bytes). No public GET endpoint exists yet for either raster; add one alongside the frontend work.
+- **Resolution (2026-05-24):** Implemented per spec
+  `docs/superpowers/specs/2026-05-24-parcel-map-frontend-design.md`.
+  Frontend `ParcelMap` component renders both rasters as a single combined
+  canvas inside `ParcelInfoPanel`, backed by a new public-no-auth
+  `GET /api/v1/auctions/{publicId}/parcel-scan` endpoint.
 
 ### Parcel scanner: periodic rescans after activation
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
