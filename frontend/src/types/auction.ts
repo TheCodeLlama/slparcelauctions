@@ -536,3 +536,26 @@ export interface MyBidSummary {
   myProxyMaxAmount: number | null;
   myBidStatus: MyBidStatus;
 }
+
+/**
+ * Public read DTO for {@code GET /api/v1/auctions/{publicId}/parcel-scan}.
+ * See docs/superpowers/specs/2026-05-24-parcel-map-frontend-design.md.
+ *
+ * <p>{@code layoutCellsBase64} decodes via base64 to {@code gridSize * gridSize / 8}
+ * bytes (one bit per cell, MSB-first within each byte, row-major SW-first).
+ * For a 64x64 grid this is 512 bytes.
+ *
+ * <p>{@code heightCellsBase64} decodes to {@code gridSize * gridSize} uint8s
+ * (one byte per cell, same row-major SW-first). Per-cell elevation:
+ * <pre>elevationMeters = baseMeters + (cells[i] &amp; 0xFF) * stepMeters</pre>
+ * For a 64x64 grid this is 4096 bytes.
+ */
+export interface ParcelScanResponse {
+  gridSize: number;
+  cellSizeMeters: number;
+  layoutCellsBase64: string;
+  heightCellsBase64: string;
+  baseMeters: number;
+  stepMeters: number;
+  scannedAt: string;
+}

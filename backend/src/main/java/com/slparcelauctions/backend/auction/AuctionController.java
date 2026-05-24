@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -7,7 +8,9 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +29,10 @@ import com.slparcelauctions.backend.auction.dto.BrokerCancelRequest;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.AuctionParcelScanNotFoundException;
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
+import com.slparcelauctions.backend.auction.parcelscan.ParcelScanReadService;
+import com.slparcelauctions.backend.auction.parcelscan.dto.ParcelScanResponse;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -63,6 +69,7 @@ public class AuctionController {
     private final AuctionDtoMapper mapper;
     private final UserRepository userRepository;
     private final EscrowRepository escrowRepository;
+    private final ParcelScanReadService parcelScanReadService;
 
     @PostMapping("/auctions")
     @ResponseStatus(HttpStatus.CREATED)
@@ -205,6 +212,24 @@ public class AuctionController {
             @AuthenticationPrincipal AuthPrincipal principal) {
         Auction a = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         return mapper.toSellerResponse(a);
+    }
+
+    /**
+     * Public parcel-scan raster endpoint. Returns the layout bitmap and
+     * heightmap for the given auction, base64-encoded for JSON transport.
+     * The response is immutable per the parcel-scanner spec so a
+     * one-year, public, immutable Cache-Control is applied. Anonymous
+     * access is permitted (see SecurityConfig matcher for this path).
+     */
+    @GetMapping("/auctions/{publicId}/parcel-scan")
+    public ResponseEntity<ParcelScanResponse> parcelScan(@PathVariable UUID publicId) {
+        return parcelScanReadService.findForAuction(publicId)
+                .map(body -> ResponseEntity.ok()
+                        .cacheControl(CacheControl.maxAge(Duration.ofDays(365))
+                                .cachePublic()
+                                .immutable())
+                        .body(body))
+                .orElseThrow(() -> new AuctionParcelScanNotFoundException(publicId));
     }
 
     /**

@@ -113,6 +113,16 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(AuctionParcelScanNotFoundException.class)
+    public ProblemDetail onParcelScanNotFound(AuctionParcelScanNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Parcel scan not found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PARCEL_SCAN_NOT_FOUND");
+        return pd;
+    }
+
     @ExceptionHandler(ParcelAlreadyListedException.class)
     public ProblemDetail handleParcelAlreadyListed(
             ParcelAlreadyListedException e, HttpServletRequest req) {
