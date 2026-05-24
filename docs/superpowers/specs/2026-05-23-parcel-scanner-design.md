@@ -94,9 +94,9 @@ A scan task is enqueued from the activation path when an auction transitions to 
 
 1. `auction.parcelScanIncluded == true`.
 2. `!auctionParcelLayoutRepository.existsByAuctionId(auction.id)` — no scan already on file.
-3. No pending `SCAN_PARCEL` task already exists for this auction.
+3. No PENDING (i.e. not-yet-terminal) `SCAN_PARCEL` task already exists for this auction. A terminally-`FAILED` previous task does NOT block re-enqueue — re-activation after a suspend gives the scan a second chance.
 
-A single `BotTask` row is created with `taskType=SCAN_PARCEL` and payload `{auctionPublicId, slParcelUuid, regionName}` (carried via the existing `BotTask.taskPayload` JSONB-ish field; the exact column reuses whatever the existing two task types use). One task per auction per lifetime; re-activation after a suspend never re-enqueues because rule 2 trips. There is no periodic rescan in this spec.
+A single `BotTask` row is created with `taskType=SCAN_PARCEL` and payload `{auctionPublicId, slParcelUuid, regionName}` (carried via the existing `BotTask.taskPayload` field; the exact column shape reuses whatever the existing two task types use). Re-activation after a suspend re-enqueues only if the prior task terminally failed and no rasters were ever written. There is no periodic rescan in this spec.
 
 ### 4.3 Claim + work
 
