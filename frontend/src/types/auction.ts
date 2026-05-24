@@ -536,3 +536,23 @@ export interface MyBidSummary {
   myProxyMaxAmount: number | null;
   myBidStatus: MyBidStatus;
 }
+
+/**
+ * Parcel-scan raster payload returned by
+ * GET /api/v1/auctions/{publicId}/parcel-scan. Mirrors
+ * {@code com.slparcelauctions.backend.auction.dto.ParcelScanResponse}
+ * server-side. Both {@code layoutCellsBase64} and
+ * {@code heightCellsBase64} are base64-encoded byte arrays of length
+ * {@code gridSize * gridSize}; the layout byte is a bitmask of
+ * {@code ParcelCellFlag} values and the height byte maps to
+ * {@code baseMeters + (value * stepMeters)}.
+ */
+export interface ParcelScanResponse {
+  gridSize: number;
+  cellSizeMeters: number;
+  layoutCellsBase64: string;
+  heightCellsBase64: string;
+  baseMeters: number;
+  stepMeters: number;
+  scannedAt: string;
+}
