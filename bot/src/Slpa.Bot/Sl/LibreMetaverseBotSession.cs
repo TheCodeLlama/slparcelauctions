@@ -549,6 +549,10 @@ public sealed class LibreMetaverseBotSession : IBotSession
             _client.Parcels.RequestAllSimParcels(sim);
             downloaded = await downloadedTcs.Task.ConfigureAwait(false);
         }
+        // The `finally` is the authoritative cleanup. Callbacks above also
+        // unregister themselves as an optimization to prevent re-firing after
+        // the TCS has been resolved/faulted; that is not a substitute for the
+        // `finally`, which runs whether or not a callback ever fired.
         finally
         {
             timeoutReg.Dispose();

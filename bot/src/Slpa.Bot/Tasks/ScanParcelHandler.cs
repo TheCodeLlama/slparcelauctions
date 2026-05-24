@@ -72,7 +72,10 @@ public sealed class ScanParcelHandler
 
         uint ourLocalId = (uint)localId.Value;
 
-        // Step 3: Build the 512-byte layout bitmap (MSB-first, 64x64 bits).
+        // Step 3: Build the 512-byte layout bitmap. Row 0 = south edge of the
+        // region (y = 0..4 m); row 63 = north edge. Col 0 = west, col 63 = east.
+        // Row-major SW-first, MSB-first within each byte (matches the
+        // AuctionParcelLayout.cells contract in the Java entity Javadoc).
         var parcelGrid = _session.GetRegionParcelLocalIds();
         var layoutCells = new byte[512];
         for (int row = 0; row < 64; row++)
