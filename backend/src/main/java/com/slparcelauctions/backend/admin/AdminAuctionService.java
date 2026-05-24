@@ -13,6 +13,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.parcelscan.ParcelScanService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class AdminAuctionService {
 
     private final AuctionRepository auctionRepo;
     private final NotificationPublisher notificationPublisher;
+    private final ParcelScanService parcelScanService;
     private final Clock clock;
 
     @Transactional
@@ -58,6 +60,7 @@ public class AdminAuctionService {
         auction.setSuspendedAt(null);
         auction.setEndsAt(newEndsAt);
         auctionRepo.save(auction);
+        parcelScanService.enqueueIfEligible(auction);
 
         notificationPublisher.listingReinstated(
             auction.getSeller().getId(), auction.getId(),

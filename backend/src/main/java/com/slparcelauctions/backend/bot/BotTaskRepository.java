@@ -58,4 +58,20 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
              LIMIT 1
             """, nativeQuery = true)
     Optional<BotTask> claimNext(@Param("now") OffsetDateTime now);
+
+    /**
+     * Returns {@code true} when an open (not COMPLETED or FAILED) task of the
+     * given type already exists for this auction. Used by
+     * {@link com.slparcelauctions.backend.auction.parcelscan.ParcelScanService}
+     * to prevent duplicate SCAN_PARCEL enqueues. A CANCELLED task does not block
+     * re-enqueue; PENDING and IN_PROGRESS do.
+     */
+    @Query("SELECT COUNT(t) > 0 FROM BotTask t " +
+           "WHERE t.auction.id = :auctionId " +
+           "AND t.taskType = :type " +
+           "AND t.status NOT IN (com.slparcelauctions.backend.bot.BotTaskStatus.COMPLETED, " +
+           "com.slparcelauctions.backend.bot.BotTaskStatus.FAILED, " +
+           "com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED)")
+    boolean existsPendingByAuctionIdAndType(@Param("auctionId") Long auctionId,
+                                            @Param("type") BotTaskType type);
 }

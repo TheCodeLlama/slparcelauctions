@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.slparcelauctions.backend.auction.parcelscan.ParcelScanService;
+import com.slparcelauctions.backend.auction.parcelscan.dto.BotScanResultRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
 import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
@@ -33,6 +35,7 @@ public class BotTaskController {
 
     private final BotTaskService service;
     private final BotTaskResultService botTaskResultService;
+    private final ParcelScanService parcelScanService;
 
     @PostMapping("/claim")
     public ResponseEntity<BotTaskResponse> claim(@Valid @RequestBody BotTaskClaimRequest body) {
@@ -55,7 +58,7 @@ public class BotTaskController {
 
     /**
      * Bot {@code VERIFY_SELL_TO} result callback (spec §5.1). Idempotent on
-     * terminal task state — a re-POST after a network blip is a no-op.
+     * terminal task state -- a re-POST after a network blip is a no-op.
      */
     @PostMapping("/{taskId}/result")
     public ResponseEntity<Void> result(@PathVariable Long taskId,
@@ -67,7 +70,7 @@ public class BotTaskController {
     /**
      * Bot {@code VERIFY_BUY_OWNER} result callback (bot-dispatch refactor
      * 2026-05-18). A separate endpoint from the {@code VERIFY_SELL_TO} callback
-     * because the outcome enum + payload shape differ — sharing one endpoint
+     * because the outcome enum + payload shape differ -- sharing one endpoint
      * via a discriminated union would force every bot client to thread the
      * task-type through, whereas split endpoints let the bot pick the right
      * payload at the call site. Idempotent on terminal task state.
@@ -77,5 +80,18 @@ public class BotTaskController {
             @Valid @RequestBody BuyOwnerResultRequest body) {
         botTaskResultService.applyVerifyBuyOwnerResult(taskId, body);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Bot {@code SCAN_PARCEL} result callback (parcel scanner 2026-05-23).
+     * Persists the layout and height-map rasters for the auction and marks
+     * the task COMPLETED. Returns 409 if the task is already completed or
+     * is not of type SCAN_PARCEL. Returns 400 on malformed raster data.
+     */
+    @PostMapping("/{taskId}/scan-result")
+    public ResponseEntity<Void> scanResult(@PathVariable Long taskId,
+            @Valid @RequestBody BotScanResultRequest body) {
+        parcelScanService.applyScanResult(taskId, body);
+        return ResponseEntity.ok().build();
     }
 }

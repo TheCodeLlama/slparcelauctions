@@ -26,6 +26,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
@@ -52,6 +54,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -93,6 +97,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
@@ -120,6 +126,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -149,6 +157,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -184,6 +194,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -232,6 +244,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -282,6 +296,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifySellToHandler>.Instance),
             () => new VerifyBuyOwnerHandler(session, backend.Object,
                     NullLogger<VerifyBuyOwnerHandler>.Instance),
+            () => new ScanParcelHandler(session, backend.Object,
+                    NullLogger<ScanParcelHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));

@@ -72,4 +72,30 @@ public interface IBotSession : IAsyncDisposable
     /// backend ingests separately. Sub-project G §7.4.
     /// </summary>
     void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo);
+
+    /// <summary>
+    /// Requests all parcel data for the current simulator and waits for the
+    /// SimParcelsDownloaded event (up to 30 s). Returns the LocalID of the
+    /// parcel that occupies the given (x, y) world coordinates, or null if
+    /// the download times out or the cell is unoccupied. Throws
+    /// <see cref="SessionLostException"/> if the session drops while waiting.
+    /// </summary>
+    Task<int?> RequestAllSimParcelsAsync(double x, double y, CancellationToken ct);
+
+    /// <summary>
+    /// Returns a 64x64 grid of parcel LocalIDs for the current simulator,
+    /// center-sampled at 4 m cell resolution (i.e. cell [row, col] is sampled
+    /// at world coords x = col*4+2, y = row*4+2). Each value is the LocalID
+    /// of the parcel that owns that cell. Returns an all-zero grid if no
+    /// simulator data is available.
+    /// </summary>
+    uint[,] GetRegionParcelLocalIds();
+
+    /// <summary>
+    /// Returns a 64x64 grid of terrain heights (metres) for the current
+    /// simulator, center-sampled at 4 m cell resolution (i.e. cell [row, col]
+    /// is sampled at the terrain height at world x = col*4+2, y = row*4+2).
+    /// Returns an all-zero grid if no terrain data is available.
+    /// </summary>
+    float[,] GetRegionTerrainHeights();
 }

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.parcelscan.ParcelScanService;
 import com.slparcelauctions.backend.coupon.CouponGrant;
 import com.slparcelauctions.backend.coupon.CouponGrantRepository;
 import com.slparcelauctions.backend.coupon.CouponGrantState;
@@ -70,6 +71,7 @@ public class AuctionVerificationService {
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final NotificationPublisher notificationPublisher;
     private final CouponGrantRepository couponGrantRepository;
+    private final ParcelScanService parcelScanService;
     private final Clock clock;
 
     public AuctionVerificationService(
@@ -80,6 +82,7 @@ public class AuctionVerificationService {
             OwnershipCheckTimestampInitializer ownershipInitializer,
             NotificationPublisher notificationPublisher,
             CouponGrantRepository couponGrantRepository,
+            ParcelScanService parcelScanService,
             Clock clock) {
         this.auctionService = auctionService;
         this.auctionRepo = auctionRepo;
@@ -88,6 +91,7 @@ public class AuctionVerificationService {
         this.ownershipInitializer = ownershipInitializer;
         this.notificationPublisher = notificationPublisher;
         this.couponGrantRepository = couponGrantRepository;
+        this.parcelScanService = parcelScanService;
         this.clock = clock;
     }
 
@@ -208,6 +212,7 @@ public class AuctionVerificationService {
             // this try/catch, rather than deferring to transaction-commit time where it
             // would escape as an unhandled error.
             Auction saved = auctionRepo.saveAndFlush(a);
+            parcelScanService.enqueueIfEligible(saved);
             notificationPublisher.listingVerified(
                     saved.getSeller().getId(), saved.getId(), saved.getTitle());
             log.info("Ownership verification succeeded: auction {} -> ACTIVE, ends {}",

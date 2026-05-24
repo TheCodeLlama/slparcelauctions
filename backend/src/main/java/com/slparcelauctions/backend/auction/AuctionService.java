@@ -108,6 +108,7 @@ public class AuctionService {
                 .bidIncrement(req.bidIncrement() != null
                         ? req.bidIncrement()
                         : BidIncrementSuggester.suggestedIncrement(req.startingBid()))
+                .parcelScanIncluded(true)
                 .durationHours(req.durationHours())
                 .snipeProtect(req.snipeProtect())
                 .snipeWindowMin(Boolean.TRUE.equals(req.snipeProtect()) ? req.snipeWindowMin() : null)

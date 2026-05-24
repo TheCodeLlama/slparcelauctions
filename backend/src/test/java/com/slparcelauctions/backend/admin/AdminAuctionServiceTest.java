@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.parcelscan.ParcelScanService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 
@@ -34,6 +35,7 @@ class AdminAuctionServiceTest {
 
     @Mock AuctionRepository auctionRepo;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock ParcelScanService parcelScanService;
 
     // Fixed clock: "now" = 2025-01-01T12:00:00Z
     private static final Instant NOW_INSTANT = Instant.parse("2025-01-01T12:00:00Z");
@@ -44,7 +46,7 @@ class AdminAuctionServiceTest {
     @BeforeEach
     void setUp() {
         Clock fixed = Clock.fixed(NOW_INSTANT, ZoneOffset.UTC);
-        service = new AdminAuctionService(auctionRepo, notificationPublisher, fixed);
+        service = new AdminAuctionService(auctionRepo, notificationPublisher, parcelScanService, fixed);
     }
 
     private User seller() {
