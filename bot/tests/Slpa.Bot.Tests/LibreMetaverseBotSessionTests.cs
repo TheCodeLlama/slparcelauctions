@@ -86,6 +86,13 @@ public sealed class FakeBotSession : IBotSession
     public SessionState State { get; private set; } = SessionState.Starting;
     public Guid BotUuid { get; } = Guid.NewGuid();
 
+    /// <summary>
+    /// Ordered log of method names called on this session, for call-order
+    /// assertions in handler tests (e.g. WaitForRegionTerrain before
+    /// GetRegionTerrainHeights).
+    /// </summary>
+    public List<string> CallLog { get; } = new();
+
     public Func<string, TeleportResult> TeleportPolicy { get; set; } =
         _ => TeleportResult.Ok();
 
@@ -115,9 +122,34 @@ public sealed class FakeBotSession : IBotSession
     public Func<uint[,]> ParcelLocalIdsPolicy { get; set; } =
         () => new uint[64, 64];
 
-    /// <summary>Policy for <see cref="GetRegionTerrainHeights"/>. Defaults to a 64x64 all-zero grid.</summary>
+    /// <summary>
+    /// Policy for the float[,] returned by <see cref="GetRegionTerrainHeights"/>.
+    /// Defaults to a 64x64 all-zero grid.
+    /// </summary>
     public Func<float[,]> TerrainHeightsPolicy { get; set; } =
         () => new float[64, 64];
+
+    /// <summary>
+    /// Policy for the bool[,] loaded-flag returned by
+    /// <see cref="GetRegionTerrainHeights"/>. Defaults to a 64x64 all-true grid
+    /// (all cells loaded) so existing tests continue to pass without change.
+    /// Set individual cells to false to simulate partially loaded terrain.
+    /// </summary>
+    public Func<bool[,]> TerrainHeightsLoadedPolicy { get; set; } = () =>
+    {
+        var loaded = new bool[64, 64];
+        for (int r = 0; r < 64; r++)
+            for (int c = 0; c < 64; c++)
+                loaded[r, c] = true;
+        return loaded;
+    };
+
+    /// <summary>
+    /// Policy for <see cref="WaitForRegionTerrainAsync"/>. Defaults to
+    /// returning 256 (all patches received) immediately.
+    /// </summary>
+    public Func<CancellationToken, Task<int>> WaitForRegionTerrainPolicy { get; set; } =
+        _ => Task.FromResult(256);
 
     /// <summary>
     /// Captures every <see cref="GiveGroupMoney"/> call so handler tests can
@@ -160,7 +192,17 @@ public sealed class FakeBotSession : IBotSession
 
     public uint[,] GetRegionParcelLocalIds() => ParcelLocalIdsPolicy();
 
-    public float[,] GetRegionTerrainHeights() => TerrainHeightsPolicy();
+    public RegionTerrainHeights GetRegionTerrainHeights()
+    {
+        CallLog.Add(nameof(GetRegionTerrainHeights));
+        return new(TerrainHeightsPolicy(), TerrainHeightsLoadedPolicy());
+    }
+
+    public Task<int> WaitForRegionTerrainAsync(CancellationToken ct)
+    {
+        CallLog.Add(nameof(WaitForRegionTerrainAsync));
+        return WaitForRegionTerrainPolicy(ct);
+    }
 
     public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
         => GiveGroupMoneyCalls.Add(new GiveGroupMoneyCall(slGroupUuid, amountL, memo));

@@ -135,6 +135,23 @@ public sealed class HttpBackendClient : IBackendClient
         }, ct).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
+    public async Task PostScanFailedAsync(
+        long taskId, ScanFailedRequest body, CancellationToken ct)
+    {
+        using var resp = await SendWithRetryAsync(() =>
+        {
+            var req = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/bot/tasks/" + taskId + "/scan-failed")
+            {
+                Content = JsonContent.Create(body, options: JsonOpts)
+            };
+            return req;
+        }, ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+    }
+
     private async Task<HttpResponseMessage> SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory, CancellationToken ct)
     {

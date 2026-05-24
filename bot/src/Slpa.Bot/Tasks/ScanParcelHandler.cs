@@ -92,19 +92,51 @@ public sealed class ScanParcelHandler
             }
         }
 
-        // Step 4: Build the quantized 4096-byte heightmap.
+        // Step 4: Wait for terrain patches to stream in, then sample heights.
+        var patchCount = await _session.WaitForRegionTerrainAsync(ct).ConfigureAwait(false);
+        _log.LogInformation("SCAN_PARCEL {Id}: terrain patches received = {Count}/256",
+            task.Id, patchCount);
+
         var terrain = _session.GetRegionTerrainHeights();
-        float regionMin = float.MaxValue;
-        float regionMax = float.MinValue;
+
+        // Fail fast if any cells did not load: the data would be silently wrong.
+        int unloadedCells = 0;
         for (int row = 0; row < 64; row++)
+            for (int col = 0; col < 64; col++)
+                if (!terrain.Loaded[row, col]) unloadedCells++;
+
+        if (unloadedCells > 0)
         {
+            _log.LogWarning(
+                "SCAN_PARCEL {Id}: {Unloaded}/4096 cells did not load after wait; posting FAILED",
+                task.Id, unloadedCells);
+            await PostFailedAsync(task, "TERRAIN_NOT_LOADED", ct).ConfigureAwait(false);
+            return;
+        }
+
+        // Diagnostic: if all cells loaded but heights are uniformly the same value,
+        // that is unexpected for any non-trivial region and suggests a code bug
+        // (e.g. TerrainHeightAtPoint returning true with a stale zero, or a
+        // coordinate-mismatch) rather than the terrain-load timing race.
+        float diagMin = float.MaxValue, diagMax = float.MinValue;
+        for (int row = 0; row < 64; row++)
             for (int col = 0; col < 64; col++)
             {
-                float v = terrain[row, col];
-                if (v < regionMin) regionMin = v;
-                if (v > regionMax) regionMax = v;
+                if (terrain.Heights[row, col] < diagMin) diagMin = terrain.Heights[row, col];
+                if (terrain.Heights[row, col] > diagMax) diagMax = terrain.Heights[row, col];
             }
+        if (diagMin == diagMax)
+        {
+            _log.LogWarning(
+                "SCAN_PARCEL {Id}: all 4096 cells loaded but heights are uniformly {H} m. " +
+                "This is unexpected for any non-trivial region and suggests a code bug, " +
+                "not the terrain-load timing race.",
+                task.Id, diagMin);
         }
+
+        // Build the quantized 4096-byte heightmap from terrain.Heights.
+        float regionMin = diagMin;
+        float regionMax = diagMax;
 
         float step = MathF.Max(0.001f, (regionMax - regionMin) / 255f);
         float baseM = regionMin;
@@ -113,7 +145,7 @@ public sealed class ScanParcelHandler
         {
             for (int col = 0; col < 64; col++)
             {
-                float v = terrain[row, col];
+                float v = terrain.Heights[row, col];
                 int q = (int)MathF.Round((v - baseM) / step);
                 if (q < 0) q = 0;
                 if (q > 255) q = 255;
@@ -161,6 +193,27 @@ public sealed class ScanParcelHandler
                 "SCAN_PARCEL {Id} backend returned {Status}; " +
                 "leaving for backend sweep",
                 task.Id, (int)resp.StatusCode);
+        }
+    }
+
+    private async Task PostFailedAsync(
+        BotTaskResponse task, string reason, CancellationToken ct)
+    {
+        try
+        {
+            await _backend.PostScanFailedAsync(
+                task.Id,
+                new ScanFailedRequest(reason),
+                ct).ConfigureAwait(false);
+            _log.LogInformation(
+                "SCAN_PARCEL {Id} -> FAILED ({Reason})", task.Id, reason);
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.LogWarning(ex,
+                "SCAN_PARCEL {Id} backend fail-report POST failed (network); " +
+                "leaving for backend sweep",
+                task.Id);
         }
     }
 }

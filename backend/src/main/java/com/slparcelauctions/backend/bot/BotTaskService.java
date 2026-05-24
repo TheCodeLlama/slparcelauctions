@@ -91,4 +91,16 @@ public class BotTaskService {
         task.setCompletedAt(OffsetDateTime.now(clock));
         return botTaskRepo.save(task);
     }
+
+    /**
+     * Mark a task FAILED with the supplied reason string. Sets
+     * {@code completedAt} to now and persists.
+     */
+    @Transactional
+    public BotTask markFailed(BotTask task, String reason) {
+        task.setStatus(BotTaskStatus.FAILED);
+        task.setFailureReason(reason);
+        task.setCompletedAt(OffsetDateTime.now(clock));
+        return botTaskRepo.save(task);
+    }
 }
