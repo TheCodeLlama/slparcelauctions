@@ -6,11 +6,19 @@ active-auction ownership monitoring are handled exclusively by the
 backend's World API path; the bot does not participate in those flows.
 The bot's roles are: SL IM dispatch, idle parking, `WITHDRAW_GROUP` task
 handling (in-world group-money transfers issued by
-`WithdrawGroupHandler`), and the escrow `VERIFY_SELL_TO` task
+`WithdrawGroupHandler`), the escrow `VERIFY_SELL_TO` task
 (`VerifySellToHandler` — teleport to the parcel and read its
 authorized-buyer / sale-price / for-sale flag to confirm the seller set
 "Sell To" the winning buyer at L$0, reporting a `SellToOutcome` back via
-`POST /api/v1/bot/tasks/{id}/result`). `VERIFY_SELL_TO` is a deliberate,
+`POST /api/v1/bot/tasks/{id}/result`), and the `SCAN_PARCEL` task
+(`ScanParcelHandler` — teleport into the parcel's region, read the
+full-region parcel-cell overlay and terrain heights, pack the results
+into a 512-byte layout bitmap and a 4 KB uint8 heightmap, and post both
+to `POST /api/v1/bot/tasks/{id}/scan-result`; see spec
+`docs/superpowers/specs/2026-05-23-parcel-scanner-design.md`). `SCAN_PARCEL`
+is a one-off task fired at auction activation; it is non-gating and does
+not revive the retired active-state monitoring pattern.
+`VERIFY_SELL_TO` is a deliberate,
 narrow partial reversal of the 2026-05-16 ownership-only-verification
 "retire bot from escrow" decision (spec
 `docs/superpowers/specs/2026-05-17-escrow-transfer-split-verification-design.md`)

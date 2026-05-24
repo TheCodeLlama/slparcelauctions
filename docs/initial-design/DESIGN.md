@@ -907,15 +907,9 @@ ON REZ:
 - Interactive: hovering over the image shows a tooltip indicating whether that point is part of the parcel or not
 - Parcel area clearly visualized relative to the full region
 
-**Generation approaches (to be determined):**
+**Implemented 2026-05-23:** bot via LibreMetaverse + uint8 quantized heightmap. See `docs/superpowers/specs/2026-05-23-parcel-scanner-design.md`.
 
-1. **Script verification (LSL):** During script verification, the rezzable object scans the region using `llGetParcelDetails()` at grid points to determine which 4x4m cells belong to the parcel. Results sent to backend via `llHTTPRequest`. Backend renders the grid image server-side.
-
-2. **Bot verification (LibreMetaverse):** On the bot's first visit to the parcel, it reads parcel boundary data from the viewer protocol (`ParcelProperties` includes local ID; `ParcelOverlay` message contains the full region parcel map). Bot sends raw data to backend for image rendering.
-
-3. **Wearable scanner object:** Bot wears a scripted attachment that performs the scan. Could combine LSL scanning with bot mobility. Needs investigation on whether worn scripts can read parcel data for parcels the wearer is standing on vs. adjacent parcels.
-
-4. **Seller-run scanner (fallback/marketplace):** For parcels where the bot can't access, provide a script on SL Marketplace or via vendor that the seller can rez on their parcel. Script performs the scan and sends data to SLPA backend with the listing ID. Self-destructs after scan.
+The `ScanParcelHandler` teleports into the parcel's region, reads the full-region parcel-cell overlay (`ParcelOverlay` message) and terrain heights, packs cell membership into a 512-byte bitmap (one bit per 4 m x 4 m cell, 64x64 grid), quantizes terrain heights to a 4 KB uint8 raster with auto-fitted base + step, and posts both to `POST /api/v1/bot/tasks/{id}/scan-result`. Backend persists the rasters as `auction_parcel_layouts` and `auction_parcel_height_maps` (BYTEA). The scan is non-gating.
 
 **Fallback behavior:**
 - If bot cannot access the parcel/region → layout map is **not generated**
@@ -928,14 +922,7 @@ ON REZ:
 - Re-generated if parcel is subdivided/joined (detected via area change on bot check)
 - Cached - only regenerated on verification or manual refresh
 
-**TODO:**
-- Determine which `ParcelOverlay` / `ParcelProperties` data from LibreMetaverse provides boundary info
-- Decide on server-side image rendering approach (Canvas API, sharp/jimp, etc.)
-- Design the interactive tooltip overlay (HTML canvas? SVG?)
-- Spec the LSL scanning grid resolution (4x4m cells = 64x64 grid = 4096 checks - may need chunking)
-- Evaluate wearable attachment approach for bot scanning
-- Design the self-service scanner script for marketplace distribution
-- Determine if `ParcelOverlay` bitmap data is sufficient or if per-cell `llGetParcelDetails` is needed
+Frontend rendering of either raster, periodic rescans, LSL fallback for estate-banned regions, and paid-upgrade entitlement logic are deferred. See `docs/implementation/DEFERRED_WORK.md`.
 
 ---
 
