@@ -146,6 +146,24 @@ class ParcelScanServiceTest {
         assertThat(count).isEqualTo(1);
     }
 
+    @Test
+    void enqueue_populatesPositionFromParcelSnapshot() {
+        Auction auction = savedAuction(savedUser("position-fields"));
+        // savedAuction sets positionX=128.0, positionY=64.0, positionZ=22.0
+        parcelScanService.enqueueIfEligible(auction);
+        em.flush();
+
+        BotTask task = botTaskRepo.findAll().stream()
+                .filter(t -> t.getTaskType() == BotTaskType.SCAN_PARCEL
+                        && t.getAuction().getId().equals(auction.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(task.getPositionX()).isEqualTo(128.0);
+        assertThat(task.getPositionY()).isEqualTo(64.0);
+        assertThat(task.getPositionZ()).isEqualTo(22.0);
+    }
+
     // --- applyScanResult ---
 
     @Test

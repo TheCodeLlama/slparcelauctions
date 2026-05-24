@@ -65,14 +65,16 @@ public class BotTaskService {
      */
     @Transactional
     public BotTask enqueueScanParcel(Auction auction) {
+        var snapshot = auction.getParcelSnapshot();
         BotTask task = BotTask.builder()
                 .taskType(BotTaskType.SCAN_PARCEL)
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
                 .parcelUuid(auction.getSlParcelUuid())
-                .regionName(auction.getParcelSnapshot() != null
-                        ? auction.getParcelSnapshot().getRegionName()
-                        : null)
+                .regionName(snapshot != null ? snapshot.getRegionName() : null)
+                .positionX(snapshot != null ? snapshot.getPositionX() : null)
+                .positionY(snapshot != null ? snapshot.getPositionY() : null)
+                .positionZ(snapshot != null ? snapshot.getPositionZ() : null)
                 .sentinelPrice(0L)
                 .build();
         BotTask saved = botTaskRepo.save(task);
