@@ -160,6 +160,24 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `slpa.bot.shared-secret` stays as the HMAC key; rotation via config
   + redeploy.
 
+### Parcel layout map generation — RESOLVED (2026-05-23)
+- **From:** Epic 06 spec §1.2
+- **Why:** DESIGN.md §5.5 flags this as needing further design. Four
+  possible implementation routes (LSL scan, bot scan, wearable scanner,
+  seller-run scanner) with no decision yet.
+- **When:** Indefinite — pending a dedicated design pass.
+- **Notes:** The bot scan variant would live in
+  `bot/src/Slpa.Bot/Tasks/LayoutMapHandler.cs` alongside verify/monitor,
+  driven by a new `BotTaskType.LAYOUT_MAP`. Do not scaffold until the
+  design lands.
+- **Resolution (2026-05-23):** Implemented as `SCAN_PARCEL` per spec
+  `docs/superpowers/specs/2026-05-23-parcel-scanner-design.md`. Bot-via-LibreMetaverse
+  approach picked, with `ScanParcelHandler` and the
+  `auction_parcel_layouts` + `auction_parcel_height_maps` tables.
+  See the dedicated "Parcel scanner:" entries below for items still deferred
+  (frontend rendering, periodic rescans, paid-upgrade entitlement, admin GET,
+  LSL fallback, bot failure-result endpoint).
+
 ### Parcel scanner: frontend raster rendering
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
 - **Why:** Rendering either raster (layout bitmap or heightmap) on the listing detail page requires a dedicated frontend design pass (canvas vs. SVG, interactive cell hover, colour mapping). Out of scope for the initial scanner implementation.
