@@ -499,6 +499,117 @@ public sealed class LibreMetaverseBotSession : IBotSession
             slGroupUuid, amountL, memo);
     }
 
+    /// <inheritdoc/>
+    public async Task<int?> RequestAllSimParcelsAsync(double x, double y, CancellationToken ct)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException(
+                $"Cannot request sim parcels in state {State}");
+        }
+
+        var sim = _client.Network.CurrentSim;
+        if (sim is null) return null;
+
+        var downloadedTcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<SimParcelsDownloadedEventArgs>? handler = null;
+        handler = (_, args) =>
+        {
+            if (args.Simulator == sim)
+            {
+                _client.Parcels.SimParcelsDownloaded -= handler!;
+                downloadedTcs.TrySetResult(true);
+            }
+        };
+        _client.Parcels.SimParcelsDownloaded += handler;
+
+        EventHandler<DisconnectedEventArgs>? disc = null;
+        disc = (_, _) =>
+        {
+            _client.Parcels.SimParcelsDownloaded -= handler!;
+            _client.Network.Disconnected -= disc!;
+            downloadedTcs.TrySetException(
+                new SessionLostException("Disconnected while waiting for SimParcelsDownloaded"));
+        };
+        _client.Network.Disconnected += disc;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+        var timeoutReg = timeoutCts.Token.Register(() =>
+        {
+            _client.Parcels.SimParcelsDownloaded -= handler!;
+            _client.Network.Disconnected -= disc!;
+            downloadedTcs.TrySetResult(false);
+        });
+
+        bool downloaded;
+        try
+        {
+            _client.Parcels.RequestAllSimParcels(sim);
+            downloaded = await downloadedTcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            timeoutReg.Dispose();
+            _client.Parcels.SimParcelsDownloaded -= handler;
+            _client.Network.Disconnected -= disc;
+        }
+
+        if (!downloaded)
+        {
+            _log.LogWarning(
+                "SimParcelsDownloaded did not fire within 30 s for {Sim}; " +
+                "reading whatever data is cached.",
+                sim.Name);
+        }
+
+        int row = Math.Clamp((int)(y / 4.0), 0, 63);
+        int col = Math.Clamp((int)(x / 4.0), 0, 63);
+        int localId = sim.ParcelMap[row, col];
+        return localId == 0 ? null : localId;
+    }
+
+    /// <inheritdoc/>
+    public uint[,] GetRegionParcelLocalIds()
+    {
+        var sim = _client.Network.CurrentSim;
+        var grid = new uint[64, 64];
+        if (sim is null) return grid;
+        for (int row = 0; row < 64; row++)
+        {
+            for (int col = 0; col < 64; col++)
+            {
+                // ParcelMap is indexed [row, col] as in ReadParcelAsync.
+                grid[row, col] = (uint)Math.Max(0, sim.ParcelMap[row, col]);
+            }
+        }
+        return grid;
+    }
+
+    /// <inheritdoc/>
+    public float[,] GetRegionTerrainHeights()
+    {
+        var sim = _client.Network.CurrentSim;
+        var grid = new float[64, 64];
+        if (sim is null) return grid;
+        // Center-sample each 4 m cell via sim.TerrainHeightAtPoint(x, y, out float h).
+        // The SL coordinate system: x = col*4+2, y = row*4+2 (world metres, clamped 0..255).
+        for (int row = 0; row < 64; row++)
+        {
+            for (int col = 0; col < 64; col++)
+            {
+                int worldX = col * 4 + 2;
+                int worldY = row * 4 + 2;
+                if (sim.TerrainHeightAtPoint(worldX, worldY, out float h))
+                {
+                    grid[row, col] = h;
+                }
+            }
+        }
+        return grid;
+    }
+
     private static TeleportFailureKind ClassifyFailure(string? message)
     {
         if (string.IsNullOrEmpty(message)) return TeleportFailureKind.Other;
