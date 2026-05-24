@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -74,4 +75,21 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
            "com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED)")
     boolean existsPendingByAuctionIdAndType(@Param("auctionId") Long auctionId,
                                             @Param("type") BotTaskType type);
+
+    /**
+     * Deletes all non-terminal (PENDING or IN_PROGRESS) tasks of the given type
+     * for the given auction. Used by the admin re-enqueue path to clear any
+     * orphaned or in-flight task before calling
+     * {@link com.slparcelauctions.backend.auction.parcelscan.ParcelScanService#enqueueIfEligible}
+     * so the eligibility check in rule 3 does not block re-enqueue.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM BotTask t " +
+           "WHERE t.auction.id = :auctionId " +
+           "AND t.taskType = :type " +
+           "AND t.status NOT IN (com.slparcelauctions.backend.bot.BotTaskStatus.COMPLETED, " +
+           "com.slparcelauctions.backend.bot.BotTaskStatus.FAILED, " +
+           "com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED)")
+    void deletePendingByAuctionIdAndType(@Param("auctionId") Long auctionId,
+                                         @Param("type") BotTaskType type);
 }

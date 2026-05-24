@@ -218,6 +218,13 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** There is no explicit `POST .../scan-result` failure path. A failed scan leaves the `SCAN_PARCEL` task IN_PROGRESS until the in-progress timeout sweeps it (configured via `slpa.bot-task.in-progress-timeout`, default `PT20M`). This is acceptable for a non-gating feature but means a crashed bot leaves a stale row for the configured window. A lightweight failure-report body (`{ "error": "ACCESS_DENIED" }`) would let the bot close the task immediately.
 - **When:** Indefinite — only if stale IN_PROGRESS rows become operationally noisy.
 - **Notes:** The simplest form is a 204 endpoint that accepts any body and marks the task FAILED with the supplied reason string.
+- **Correction (2026-05-24, second pass):** No in-progress timeout sweep
+  exists in the codebase. The earlier description was based on a stale
+  aspirational comment in `BotTaskStatus.java` that has now been
+  corrected. The design is intentionally one-shot per scan. Orphaned
+  IN_PROGRESS rows from bot crashes are recovered via the admin
+  re-enqueue endpoint added in this PR (POST /api/v1/admin/parcel-scan/
+  {publicId}/reenqueue).
 
 ### Minor: `ParcelScanService.applyScanResult` uses `OffsetDateTime.now()` without injected Clock
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` / Task 8 docs sweep

@@ -11,4 +11,6 @@ public interface AuctionParcelLayoutRepository extends JpaRepository<AuctionParc
     boolean existsByAuctionId(Long auctionId);
 
     Optional<AuctionParcelLayout> findByAuctionId(Long auctionId);
+
+    void deleteByAuctionId(Long auctionId);
 }
