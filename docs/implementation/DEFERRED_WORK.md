@@ -160,7 +160,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `slpa.bot.shared-secret` stays as the HMAC key; rotation via config
   + redeploy.
 
-### Parcel layout map generation
+### Parcel layout map generation — RESOLVED (2026-05-23)
 - **From:** Epic 06 spec §1.2
 - **Why:** DESIGN.md §5.5 flags this as needing further design. Four
   possible implementation routes (LSL scan, bot scan, wearable scanner,
@@ -170,6 +170,55 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `bot/src/Slpa.Bot/Tasks/LayoutMapHandler.cs` alongside verify/monitor,
   driven by a new `BotTaskType.LAYOUT_MAP`. Do not scaffold until the
   design lands.
+- **Resolution (2026-05-23):** Implemented as `SCAN_PARCEL` per spec
+  `docs/superpowers/specs/2026-05-23-parcel-scanner-design.md`. Bot-via-LibreMetaverse
+  approach picked, with `ScanParcelHandler` and the
+  `auction_parcel_layouts` + `auction_parcel_height_maps` tables.
+  See the dedicated "Parcel scanner:" entries below for items still deferred
+  (frontend rendering, periodic rescans, paid-upgrade entitlement, admin GET,
+  LSL fallback, bot failure-result endpoint).
+
+### Parcel scanner: frontend raster rendering
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
+- **Why:** Rendering either raster (layout bitmap or heightmap) on the listing detail page requires a dedicated frontend design pass (canvas vs. SVG, interactive cell hover, colour mapping). Out of scope for the initial scanner implementation.
+- **When:** Indefinite — pull in when a frontend design is approved.
+- **Notes:** Backend stores the rasters as `auction_parcel_layouts.layout_cells` (BYTEA, 512 bytes) and `auction_parcel_height_maps.height_cells` (BYTEA, 4096 bytes). No public GET endpoint exists yet for either raster; add one alongside the frontend work.
+
+### Parcel scanner: periodic rescans after activation
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
+- **Why:** The current implementation fires one `SCAN_PARCEL` task at activation. Detecting subdivision or join events after activation would require a periodic rescan scheduler. Not needed for Phase 1.
+- **When:** Indefinite — only if there is a concrete need to refresh rasters on already-active listings.
+- **Notes:** Would be a new `@Scheduled` job similar to `OwnershipCheckTask`, driven by `auctions.parcel_scan_included` and last-scan age.
+
+### Parcel scanner: paid-upgrade entitlement logic
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
+- **Why:** `auctions.parcel_scan_included` is the entitlement column, defaulting to true for all listings. No pricing, toggle, or billing logic is wired yet.
+- **When:** Indefinite — pull in when a paid-tier model is defined.
+- **Notes:** `Auction.parcelScanIncluded` already carries the column; add a write path (seller opt-in/opt-out or admin grant) and gate `ParcelScanService.enqueueIfEligible` on its value.
+
+### Parcel scanner: per-cell admin GET endpoint
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
+- **Why:** No admin or public endpoint exposes the raw raster bytes. Deferred because no consumer exists yet.
+- **When:** Indefinite — add alongside the frontend rendering work.
+- **Notes:** Suggested shape: `GET /api/v1/admin/auctions/{publicId}/parcel-scan` returning `{ layoutCellsBase64, heightCellsBase64, ... }`.
+
+### Parcel scanner: LSL fallback for estate-banned regions
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7
+- **Why:** If the bot cannot enter the region, no scan is performed (non-gating). A seller-run LSL script could fill the gap for private-estate parcels where the bot lacks access, but that requires Phase 6+ LSL scripting infrastructure.
+- **When:** Phase 11 (LSL scripting) or later.
+- **Notes:** Would reuse the `parcel_scan_included` flag and the same `POST /scan-result` endpoint; the LSL path needs a different auth token and a different `BotTaskType` or a parallel endpoint.
+
+### Parcel scanner: bot failure-result endpoint for SCAN_PARCEL
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7 / Task 7 code review
+- **Why:** There is no explicit `POST .../scan-result` failure path. A failed scan leaves the `SCAN_PARCEL` task IN_PROGRESS until the in-progress timeout sweeps it (configured via `slpa.bot-task.in-progress-timeout`, default `PT20M`). This is acceptable for a non-gating feature but means a crashed bot leaves a stale row for the configured window. A lightweight failure-report body (`{ "error": "ACCESS_DENIED" }`) would let the bot close the task immediately.
+- **When:** Indefinite — only if stale IN_PROGRESS rows become operationally noisy.
+- **Notes:** The simplest form is a 204 endpoint that accepts any body and marks the task FAILED with the supplied reason string.
+
+### Minor: `ParcelScanService.applyScanResult` uses `OffsetDateTime.now()` without injected Clock
+- **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` / Task 8 docs sweep
+- **Why:** `ParcelScanService.applyScanResult` and the raster entities stamp `OffsetDateTime.now()` directly. Sibling services in the auction package use an injected `Clock` bean for deterministic testing. Inconsistency is minor but creates a testing gap.
+- **When:** Indefinite — next touch of `ParcelScanService` or a broader Clock-injection sweep.
+- **Notes:** Pattern: inject `Clock clock` via constructor, replace `OffsetDateTime.now()` with `OffsetDateTime.now(clock)`. Test clock can be a `Clock.fixed(...)` instance.
 
 ### TRANSFER_READY_OBSERVED envelope shape — RESOLVED (2026-05-16)
 - **From:** Epic 06 Task 5 (`BotMonitorDispatcher` MONITOR_ESCROW

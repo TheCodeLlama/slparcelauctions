@@ -32,6 +32,17 @@ public interface IBackendClient
     /// <see cref="AuthConfigException"/> on 401.
     /// </summary>
     Task ReportBuyOwnerResultAsync(long taskId, BuyOwnerResultRequest body, CancellationToken ct);
+
+    /// <summary>
+    /// Posts a parcel scan result to the backend
+    /// (<c>POST /api/v1/bot/tasks/{taskId}/scan-result</c>). Returns the raw
+    /// <see cref="HttpResponseMessage"/> so the caller can inspect the status
+    /// code (200 = recorded, 409 = already recorded, 4xx = rejected). The
+    /// caller owns disposal. Shares the bearer auth + 5xx retry ladder.
+    /// Throws <see cref="AuthConfigException"/> on 401.
+    /// </summary>
+    Task<HttpResponseMessage> PostScanResultAsync(
+        long taskId, ScanResultRequest body, CancellationToken ct);
 }
 
 /// <summary>

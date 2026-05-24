@@ -25,6 +25,7 @@ public sealed class TaskLoop : BackgroundService
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
     private readonly Func<VerifySellToHandler> _verifySellTo;
     private readonly Func<VerifyBuyOwnerHandler> _verifyBuyOwner;
+    private readonly Func<ScanParcelHandler> _scanParcel;
     private readonly IBackendClient _backend;
     private readonly IIdleParker _idleParker;
     private readonly BotActivityState _activity;
@@ -42,9 +43,11 @@ public sealed class TaskLoop : BackgroundService
         WithdrawGroupHandler withdrawGroup,
         VerifySellToHandler verifySellTo,
         VerifyBuyOwnerHandler verifyBuyOwner,
+        ScanParcelHandler scanParcel,
         ILogger<TaskLoop> log)
         : this(session, backend, idleParker, activity, botOpts.Value,
-            () => withdrawGroup, () => verifySellTo, () => verifyBuyOwner, log)
+            () => withdrawGroup, () => verifySellTo, () => verifyBuyOwner,
+            () => scanParcel, log)
     {
     }
 
@@ -61,6 +64,7 @@ public sealed class TaskLoop : BackgroundService
         Func<WithdrawGroupHandler> withdrawGroup,
         Func<VerifySellToHandler> verifySellTo,
         Func<VerifyBuyOwnerHandler> verifyBuyOwner,
+        Func<ScanParcelHandler> scanParcel,
         ILogger<TaskLoop> log)
     {
         _session = session;
@@ -72,6 +76,7 @@ public sealed class TaskLoop : BackgroundService
         _withdrawGroup = withdrawGroup;
         _verifySellTo = verifySellTo;
         _verifyBuyOwner = verifyBuyOwner;
+        _scanParcel = scanParcel;
         _log = log;
     }
 
@@ -164,6 +169,7 @@ public sealed class TaskLoop : BackgroundService
             BotTaskType.WITHDRAW_GROUP => _withdrawGroup().HandleAsync(task, ct),
             BotTaskType.VERIFY_SELL_TO => _verifySellTo().HandleAsync(task, ct),
             BotTaskType.VERIFY_BUY_OWNER => _verifyBuyOwner().HandleAsync(task, ct),
+            BotTaskType.SCAN_PARCEL => _scanParcel().HandleAsync(task, ct),
             _ => Task.CompletedTask
         };
     }

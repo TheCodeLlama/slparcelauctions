@@ -105,6 +105,21 @@ public sealed class FakeBotSession : IBotSession
         (_, _) => null;
 
     /// <summary>
+    /// Policy for <see cref="RequestAllSimParcelsAsync"/>. Returns the
+    /// LocalID (nullable) for the given coords. Defaults to returning null.
+    /// </summary>
+    public Func<double, double, int?> RequestAllSimParcelsPolicy { get; set; } =
+        (_, _) => null;
+
+    /// <summary>Policy for <see cref="GetRegionParcelLocalIds"/>. Defaults to a 64x64 all-zero grid.</summary>
+    public Func<uint[,]> ParcelLocalIdsPolicy { get; set; } =
+        () => new uint[64, 64];
+
+    /// <summary>Policy for <see cref="GetRegionTerrainHeights"/>. Defaults to a 64x64 all-zero grid.</summary>
+    public Func<float[,]> TerrainHeightsPolicy { get; set; } =
+        () => new float[64, 64];
+
+    /// <summary>
     /// Captures every <see cref="GiveGroupMoney"/> call so handler tests can
     /// assert on recipient / amount / memo without touching LibreMetaverse.
     /// </summary>
@@ -139,6 +154,13 @@ public sealed class FakeBotSession : IBotSession
     public Task<ParcelSnapshot?> ReadParcelAsync(
         double x, double y, CancellationToken ct)
         => Task.FromResult(ReadPolicy(x, y));
+
+    public Task<int?> RequestAllSimParcelsAsync(double x, double y, CancellationToken ct)
+        => Task.FromResult(RequestAllSimParcelsPolicy(x, y));
+
+    public uint[,] GetRegionParcelLocalIds() => ParcelLocalIdsPolicy();
+
+    public float[,] GetRegionTerrainHeights() => TerrainHeightsPolicy();
 
     public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
         => GiveGroupMoneyCalls.Add(new GiveGroupMoneyCall(slGroupUuid, amountL, memo));
