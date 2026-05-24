@@ -1,4 +1,5 @@
 using FluentAssertions;
+using OpenMetaverse;
 using Slpa.Bot.Sl;
 using Xunit;
 
@@ -61,6 +62,28 @@ public sealed class LibreMetaverseBotSessionTests
         call.Y.Should().Be(66);
         call.Z.Should().Be(25);
         call.ForceMove.Should().BeTrue();
+    }
+
+    // --- LoginParams configuration ---
+
+    /// <summary>
+    /// Regression guard: BuildLoginParams must clear the Options list.
+    /// The default 16-option list from DefaultLoginParams has caused
+    /// InternalDictionary.Add duplicate-key crashes on bot reconnect
+    /// (System.ArgumentException: An item with the same key has already
+    /// been added). An empty Options list avoids the payload entirely;
+    /// the scan bot needs only teleport + Parcels + Terrain runtime events.
+    /// </summary>
+    [Fact]
+    public void BuildLoginParams_ClearsOptions_EmptyList()
+    {
+        var client = new GridClient();
+        var p = LibreMetaverseBotSession.BuildLoginParams(
+            client, "Test Bot", "pw", "home");
+
+        p.Options.Should().BeEmpty(
+            "the scan bot strips all optional login payloads to avoid " +
+            "the InternalDictionary duplicate-key crash on reconnect");
     }
 
     [Fact]

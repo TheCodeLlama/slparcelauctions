@@ -224,6 +224,13 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   and `BotTaskService.markFailed`. The bot's `ScanParcelHandler` now posts
   `TERRAIN_NOT_LOADED` on partial terrain-patch arrival instead of relying
   on the in-progress timeout sweep.
+- **Correction (2026-05-24, second pass):** No in-progress timeout sweep
+  exists in the codebase. The Resolution paragraph above referenced one
+  based on a stale aspirational comment in `BotTaskStatus.java` that has
+  now been corrected. The design is intentionally one-shot per scan.
+  Orphaned IN_PROGRESS rows from bot crashes are recovered via the admin
+  re-enqueue endpoint added in `fix/bot-login-dup-key-and-rescan`
+  (POST /api/v1/admin/parcel-scan/{publicId}/reenqueue).
 
 ### Minor: `ParcelScanService.applyScanResult` uses `OffsetDateTime.now()` without injected Clock
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` / Task 8 docs sweep
