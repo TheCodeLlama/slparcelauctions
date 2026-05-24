@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Base64;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -65,17 +66,20 @@ class AuctionParcelScanReadControllerTest {
         seedLayout(auction);
         seedHeightMap(auction);
 
+        String expectedLayoutB64 = Base64.getEncoder().encodeToString(new byte[512]);
+        String expectedHeightB64 = Base64.getEncoder().encodeToString(new byte[4096]);
+
         mvc.perform(get("/api/v1/auctions/{id}/parcel-scan", auction.getPublicId()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("max-age=31536000")))
                 .andExpect(header().string("Cache-Control", containsString("public")))
                 .andExpect(header().string("Cache-Control", containsString("immutable")))
-                .andExpect(jsonPath("$.gridSize").exists())
-                .andExpect(jsonPath("$.cellSizeMeters").exists())
-                .andExpect(jsonPath("$.layoutCellsBase64").exists())
-                .andExpect(jsonPath("$.heightCellsBase64").exists())
-                .andExpect(jsonPath("$.baseMeters").exists())
-                .andExpect(jsonPath("$.stepMeters").exists())
+                .andExpect(jsonPath("$.gridSize").value(64))
+                .andExpect(jsonPath("$.cellSizeMeters").value(4))
+                .andExpect(jsonPath("$.layoutCellsBase64").value(expectedLayoutB64))
+                .andExpect(jsonPath("$.heightCellsBase64").value(expectedHeightB64))
+                .andExpect(jsonPath("$.baseMeters").value(22.0))
+                .andExpect(jsonPath("$.stepMeters").value(0.5))
                 .andExpect(jsonPath("$.scannedAt").exists());
     }
 
