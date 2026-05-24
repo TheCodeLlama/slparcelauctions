@@ -188,6 +188,10 @@ public class Auction extends BaseMutableEntity {
     @Column(name = "bid_increment", nullable = false)
     private Long bidIncrement = 50L;
 
+    @Builder.Default
+    @Column(name = "parcel_scan_included", nullable = false)
+    private Boolean parcelScanIncluded = true;
+
     @Column(name = "reserve_price")
     private Long reservePrice;
 
