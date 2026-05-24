@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.slparcelauctions.backend.auction.parcelscan.AuctionParcelHeightMap;
+import com.slparcelauctions.backend.auction.parcelscan.AuctionParcelLayout;
 import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.user.User;
@@ -70,6 +72,14 @@ public class Auction extends BaseMutableEntity {
             this.slParcelUuid = snapshot.getSlParcelUuid();
         }
     }
+
+    @OneToOne(mappedBy = "auction", fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL, orphanRemoval = true, optional = true)
+    private AuctionParcelLayout parcelLayout;
+
+    @OneToOne(mappedBy = "auction", fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL, orphanRemoval = true, optional = true)
+    private AuctionParcelHeightMap parcelHeightMap;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "seller_id", nullable = false)
