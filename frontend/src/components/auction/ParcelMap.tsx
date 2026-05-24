@@ -157,8 +157,8 @@ export function ParcelMap({ publicId, className }: Props) {
         }}
       />
       <figcaption className="text-xs text-fg-muted">
-        Parcel covers {stats.parcelCellCount} of 4096 cells. Elevation
-        range {stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
+        Parcel covers {stats.parcelCellCount * 16} m². Elevation
+        {" "}{stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
       </figcaption>
       {hover && <ParcelMapTooltip {...hover.cellInfo} pixelX={hover.pixelX} pixelY={hover.pixelY} />}
       <div role="status" aria-live="polite" className="sr-only">
@@ -287,7 +287,9 @@ function cellInfoFor(
 function announcementFor(info: CellInfo | null): string {
   if (!info) return "";
   const where = info.inParcel ? "in parcel" : "outside parcel";
-  return `Cell ${info.row}, ${info.col}. Elevation ${info.elevM.toFixed(1)} meters. ${where}.`;
+  // SL world coords for the SW corner of this 4 m cell. col -> x (east),
+  // row -> y (north); 4 m per cell, region is 0..256 m.
+  return `Position ${info.col * 4}, ${info.row * 4}. Elevation ${info.elevM.toFixed(1)} meters. ${where}.`;
 }
 
 function moveFocus(
@@ -315,7 +317,7 @@ function ParcelMapTooltip({ row, col, elevM, inParcel, pixelX, pixelY }: CellInf
       className="absolute pointer-events-none rounded-md border border-border-subtle bg-surface-raised px-2 py-1 text-xs text-fg shadow"
       role="presentation"
     >
-      <div>Cell ({row}, {col})</div>
+      <div>Pos: {col * 4}, {row * 4}</div>
       <div>Elevation {elevM.toFixed(1)} m</div>
       <div>{inParcel ? "In parcel" : "Outside parcel"}</div>
     </div>
