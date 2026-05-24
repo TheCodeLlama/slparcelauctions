@@ -210,7 +210,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Parcel scanner: bot failure-result endpoint for SCAN_PARCEL
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7 / Task 7 code review
-- **Why:** There is no explicit `POST .../scan-result` failure path. A failed scan leaves the `SCAN_PARCEL` task IN_PROGRESS until `BotTaskTimeoutJob` sweeps it (default 48h). This is acceptable for a non-gating feature but means a crashed bot leaves a stale row for up to 48h. A lightweight failure-report body (`{ "error": "ACCESS_DENIED" }`) would let the bot close the task immediately.
+- **Why:** There is no explicit `POST .../scan-result` failure path. A failed scan leaves the `SCAN_PARCEL` task IN_PROGRESS until the in-progress timeout sweeps it (configured via `slpa.bot-task.in-progress-timeout`, default `PT20M`). This is acceptable for a non-gating feature but means a crashed bot leaves a stale row for the configured window. A lightweight failure-report body (`{ "error": "ACCESS_DENIED" }`) would let the bot close the task immediately.
 - **When:** Indefinite — only if stale IN_PROGRESS rows become operationally noisy.
 - **Notes:** The simplest form is a 204 endpoint that accepts any body and marks the task FAILED with the supplied reason string.
 
