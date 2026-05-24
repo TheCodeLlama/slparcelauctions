@@ -9,6 +9,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.auction.Auction;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,5 +53,40 @@ public class BotTaskService {
     @Transactional(readOnly = true)
     public List<BotTask> findPending() {
         return botTaskRepo.findByStatusOrderByCreatedAtAsc(BotTaskStatus.PENDING);
+    }
+
+    /**
+     * Enqueue a SCAN_PARCEL task for the given auction. The task is created in
+     * PENDING state with no assigned bot. The caller is responsible for ensuring
+     * eligibility (scan included, no raster on file, no existing pending task).
+     *
+     * <p>{@code sentinelPrice} is set to 0 -- SCAN_PARCEL does not use a price
+     * sentinel; the field is NOT NULL so we satisfy the constraint with zero.
+     */
+    @Transactional
+    public BotTask enqueueScanParcel(Auction auction) {
+        BotTask task = BotTask.builder()
+                .taskType(BotTaskType.SCAN_PARCEL)
+                .status(BotTaskStatus.PENDING)
+                .auction(auction)
+                .parcelUuid(auction.getSlParcelUuid())
+                .regionName(auction.getParcelSnapshot() != null
+                        ? auction.getParcelSnapshot().getRegionName()
+                        : null)
+                .sentinelPrice(0L)
+                .build();
+        BotTask saved = botTaskRepo.save(task);
+        log.info("Enqueued SCAN_PARCEL bot task {} for auction {}", saved.getId(), auction.getId());
+        return saved;
+    }
+
+    /**
+     * Mark a task COMPLETED. Sets {@code completedAt} to now and persists.
+     */
+    @Transactional
+    public BotTask markCompleted(BotTask task) {
+        task.setStatus(BotTaskStatus.COMPLETED);
+        task.setCompletedAt(OffsetDateTime.now(clock));
+        return botTaskRepo.save(task);
     }
 }
