@@ -588,11 +588,12 @@ public sealed class LibreMetaverseBotSession : IBotSession
     }
 
     /// <inheritdoc/>
-    public float[,] GetRegionTerrainHeights()
+    public RegionTerrainHeights GetRegionTerrainHeights()
     {
+        var heights = new float[64, 64];
+        var loaded = new bool[64, 64];
         var sim = _client.Network.CurrentSim;
-        var grid = new float[64, 64];
-        if (sim is null) return grid;
+        if (sim is null) return new RegionTerrainHeights(heights, loaded);
         // Center-sample each 4 m cell via sim.TerrainHeightAtPoint(x, y, out float h).
         // The SL coordinate system: x = col*4+2, y = row*4+2 (world metres, clamped 0..255).
         for (int row = 0; row < 64; row++)
@@ -603,11 +604,76 @@ public sealed class LibreMetaverseBotSession : IBotSession
                 int worldY = row * 4 + 2;
                 if (sim.TerrainHeightAtPoint(worldX, worldY, out float h))
                 {
-                    grid[row, col] = h;
+                    heights[row, col] = h;
+                    loaded[row, col] = true;
                 }
             }
         }
-        return grid;
+        return new RegionTerrainHeights(heights, loaded);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> WaitForRegionTerrainAsync(CancellationToken ct)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException(
+                $"Cannot wait for terrain in state {State}");
+        }
+
+        var sim = _client.Network.CurrentSim;
+        if (sim is null) return 0;
+
+        // A standard SL region is 256x256 m = 16x16 terrain patches of 16x16 m each = 256 patches.
+        const int TotalPatches = 256;
+
+        var tcs = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int patchCount = 0;
+
+        EventHandler<OpenMetaverse.LandPatchReceivedEventArgs>? handler = null;
+        handler = (_, e) =>
+        {
+            // Only count patches for our current sim to avoid cross-sim noise.
+            if (e.Simulator != sim) return;
+            int count = Interlocked.Increment(ref patchCount);
+            if (count >= TotalPatches)
+            {
+                _client.Terrain.LandPatchReceived -= handler!;
+                tcs.TrySetResult(count);
+            }
+        };
+        _client.Terrain.LandPatchReceived += handler;
+
+        EventHandler<OpenMetaverse.DisconnectedEventArgs>? disc = null;
+        disc = (_, _) =>
+        {
+            _client.Terrain.LandPatchReceived -= handler!;
+            _client.Network.Disconnected -= disc!;
+            tcs.TrySetException(
+                new SessionLostException("Disconnected while waiting for terrain patches"));
+        };
+        _client.Network.Disconnected += disc;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+        var timeoutReg = timeoutCts.Token.Register(() =>
+        {
+            _client.Terrain.LandPatchReceived -= handler!;
+            _client.Network.Disconnected -= disc!;
+            tcs.TrySetResult(Volatile.Read(ref patchCount));
+        });
+
+        try
+        {
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            timeoutReg.Dispose();
+            _client.Terrain.LandPatchReceived -= handler;
+            _client.Network.Disconnected -= disc;
+        }
     }
 
     private static TeleportFailureKind ClassifyFailure(string? message)
@@ -638,7 +704,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
         c.Settings.USE_ASSET_CACHE = false;
         c.Settings.SEND_AGENT_APPEARANCE = false;
         c.Settings.SEND_AGENT_UPDATES = true; // required for teleport
-        c.Settings.STORE_LAND_PATCHES = false;
+        c.Settings.STORE_LAND_PATCHES = true; // required: TerrainHeightAtPoint returns false for any patch until stored
         return c;
     }
 

@@ -116,4 +116,26 @@ public class ParcelScanService {
         botTaskService.markCompleted(task);
         log.info("Scan result task {} marked COMPLETED for auction {}", task.getId(), auction.getId());
     }
+
+    /**
+     * Record a bot-reported scan failure. Marks the task FAILED with the
+     * supplied reason so the admin panel can surface why the scan did not
+     * complete. Idempotent on already-terminal tasks (returns 409).
+     */
+    @Transactional
+    public void markScanFailed(long taskId, String reason) {
+        BotTask task = botTaskRepo.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "task not found"));
+        if (task.getTaskType() != BotTaskType.SCAN_PARCEL) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "task is not SCAN_PARCEL");
+        }
+        if (task.getStatus() == BotTaskStatus.COMPLETED
+                || task.getStatus() == BotTaskStatus.FAILED
+                || task.getStatus() == BotTaskStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "task already in terminal state");
+        }
+        botTaskService.markFailed(task, reason);
+        log.info("Scan task {} marked FAILED with reason '{}' for auction {}",
+                task.getId(), reason, task.getAuction().getId());
+    }
 }

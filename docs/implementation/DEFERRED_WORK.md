@@ -213,18 +213,24 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Phase 11 (LSL scripting) or later.
 - **Notes:** Would reuse the `parcel_scan_included` flag and the same `POST /scan-result` endpoint; the LSL path needs a different auth token and a different `BotTaskType` or a parallel endpoint.
 
-### Parcel scanner: bot failure-result endpoint for SCAN_PARCEL
+### Parcel scanner: bot failure-result endpoint for SCAN_PARCEL -- RESOLVED (2026-05-24)
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` §7 / Task 7 code review
 - **Why:** There is no explicit `POST .../scan-result` failure path. A failed scan leaves the `SCAN_PARCEL` task IN_PROGRESS until the in-progress timeout sweeps it (configured via `slpa.bot-task.in-progress-timeout`, default `PT20M`). This is acceptable for a non-gating feature but means a crashed bot leaves a stale row for the configured window. A lightweight failure-report body (`{ "error": "ACCESS_DENIED" }`) would let the bot close the task immediately.
 - **When:** Indefinite — only if stale IN_PROGRESS rows become operationally noisy.
 - **Notes:** The simplest form is a 204 endpoint that accepts any body and marks the task FAILED with the supplied reason string.
+- **Resolution (2026-05-24):** Implemented during the terrain-race bugfix
+  (`fix/parcel-scan-terrain-race`). New `POST /api/v1/bot/tasks/{taskId}/scan-failed`
+  endpoint on `BotTaskController`; backed by `ParcelScanService.markScanFailed`
+  and `BotTaskService.markFailed`. The bot's `ScanParcelHandler` now posts
+  `TERRAIN_NOT_LOADED` on partial terrain-patch arrival instead of relying
+  on the in-progress timeout sweep.
 - **Correction (2026-05-24, second pass):** No in-progress timeout sweep
-  exists in the codebase. The earlier description was based on a stale
-  aspirational comment in `BotTaskStatus.java` that has now been
-  corrected. The design is intentionally one-shot per scan. Orphaned
-  IN_PROGRESS rows from bot crashes are recovered via the admin
-  re-enqueue endpoint added in this PR (POST /api/v1/admin/parcel-scan/
-  {publicId}/reenqueue).
+  exists in the codebase. The Resolution paragraph above referenced one
+  based on a stale aspirational comment in `BotTaskStatus.java` that has
+  now been corrected. The design is intentionally one-shot per scan.
+  Orphaned IN_PROGRESS rows from bot crashes are recovered via the admin
+  re-enqueue endpoint added in `fix/bot-login-dup-key-and-rescan`
+  (POST /api/v1/admin/parcel-scan/{publicId}/reenqueue).
 
 ### Minor: `ParcelScanService.applyScanResult` uses `OffsetDateTime.now()` without injected Clock
 - **From:** Parcel scanner spec `2026-05-23-parcel-scanner-design.md` / Task 8 docs sweep
