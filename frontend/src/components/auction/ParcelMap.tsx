@@ -61,10 +61,17 @@ interface Decoded {
  * pass flips: canvasY = (GRID - 1 - row) * CELL_PX. The hover and keyboard
  * math flips symmetrically.
  */
+interface HoverState {
+  cellInfo: CellInfo;
+  pixelX: number;
+  pixelY: number;
+}
+
 export function ParcelMap({ publicId, className }: Props) {
   const { data, isPending, isError } = useParcelScan(publicId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hover, setHover] = useState<CellInfo | null>(null);
+  const figureRef = useRef<HTMLElement | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
   const [focusCell, setFocusCell] = useState<{ row: number; col: number } | null>(null);
 
   const decoded: Decoded | null = useMemo(() => {
@@ -127,10 +134,10 @@ export function ParcelMap({ publicId, className }: Props) {
     return null;
   }
 
-  const liveAnnouncement = announcementFor(hover ?? cellInfoFor(focusCell, decoded));
+  const liveAnnouncement = announcementFor(hover?.cellInfo ?? cellInfoFor(focusCell, decoded));
 
   return (
-    <figure className={cn("relative flex flex-col gap-2", className)}>
+    <figure ref={figureRef} className={cn("relative flex flex-col gap-2", className)}>
       <canvas
         ref={canvasRef}
         width={CANVAS_PX}
@@ -139,7 +146,7 @@ export function ParcelMap({ publicId, className }: Props) {
         role="application"
         aria-label="Region parcel and elevation map, 64 by 64 cells"
         className="aspect-square w-full max-w-[320px] rounded-md border border-border-subtle [image-rendering:pixelated]"
-        onMouseMove={(e) => setHover(cellInfoForEvent(e, decoded))}
+        onMouseMove={(e) => setHover(cellInfoForEvent(e, decoded, figureRef.current))}
         onMouseLeave={() => setHover(null)}
         onKeyDown={(e) => {
           const next = moveFocus(focusCell, e.key);
@@ -153,7 +160,7 @@ export function ParcelMap({ publicId, className }: Props) {
         Parcel covers {stats.parcelCellCount} of 4096 cells. Elevation
         range {stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
       </figcaption>
-      {hover && <ParcelMapTooltip {...hover} />}
+      {hover && <ParcelMapTooltip {...hover.cellInfo} pixelX={hover.pixelX} pixelY={hover.pixelY} />}
       <div role="status" aria-live="polite" className="sr-only">
         {liveAnnouncement}
       </div>
@@ -242,16 +249,26 @@ function paintFocusCursor(
 function cellInfoForEvent(
   e: React.MouseEvent<HTMLCanvasElement>,
   decoded: Decoded,
-): CellInfo {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const xPx = e.clientX - rect.left;
-  const yPx = e.clientY - rect.top;
-  // Use displayed bounding-rect, not canvas.width/height (CSS upscales).
-  const col = clamp(Math.floor((xPx / rect.width) * GRID), 0, GRID - 1);
-  const visualRow = clamp(Math.floor((yPx / rect.height) * GRID), 0, GRID - 1);
+  figureEl: HTMLElement | null,
+): HoverState {
+  // Row/col math uses the canvas bounding rect (CSS-upscaled display coords).
+  const canvasRect = e.currentTarget.getBoundingClientRect();
+  const xPx = e.clientX - canvasRect.left;
+  const yPx = e.clientY - canvasRect.top;
+  const col = clamp(Math.floor((xPx / canvasRect.width) * GRID), 0, GRID - 1);
+  const visualRow = clamp(Math.floor((yPx / canvasRect.height) * GRID), 0, GRID - 1);
   // Flip back from canvas-y (top-down) to row (SW-first, south-up).
   const row = GRID - 1 - visualRow;
-  return cellInfoFor({ row, col }, decoded)!;
+  const cellInfo = cellInfoFor({ row, col }, decoded)!;
+
+  // Tooltip position uses the figure bounding rect so the absolutely-
+  // positioned tooltip sits inside the <figure> container without overflow.
+  // Fall back to canvas rect if the ref is null (defensive).
+  const figureRect = figureEl?.getBoundingClientRect() ?? canvasRect;
+  const pixelX = e.clientX - figureRect.left;
+  const pixelY = e.clientY - figureRect.top;
+
+  return { cellInfo, pixelX, pixelY };
 }
 
 function cellInfoFor(
@@ -291,10 +308,11 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function ParcelMapTooltip({ row, col, elevM, inParcel }: CellInfo) {
+function ParcelMapTooltip({ row, col, elevM, inParcel, pixelX, pixelY }: CellInfo & { pixelX: number; pixelY: number }) {
   return (
     <div
-      className="absolute left-2 top-2 pointer-events-none rounded-md border border-border-subtle bg-surface-raised px-2 py-1 text-xs text-fg shadow"
+      style={{ left: pixelX + 12, top: pixelY + 12 }}
+      className="absolute pointer-events-none rounded-md border border-border-subtle bg-surface-raised px-2 py-1 text-xs text-fg shadow"
       role="presentation"
     >
       <div>Cell ({row}, {col})</div>

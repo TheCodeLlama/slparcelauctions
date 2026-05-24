@@ -45,12 +45,21 @@ fi
 #   getBoundingClientRect() and updated on scroll/resize -- the values
 #   change continuously and can't be precomputed into a Tailwind class.
 #   Same shape as the @dnd-kit transform exception above.
+#
+# - src/components/auction/ParcelMap.tsx: the hover tooltip tracks the
+#   mouse cursor. Its left/top are runtime pixel offsets (cursor position
+#   relative to the <figure> bounding rect) computed on every mousemove
+#   event -- the values change continuously and can't be precomputed into
+#   Tailwind classes. Same shape as the AdminRealtyGroupRowActionMenu
+#   exception above. See spec
+#   docs/superpowers/specs/2026-05-24-parcel-map-frontend-design.md §4.7.
 allowlist=(
   "src/components/marketing/HeroFeaturedStack.tsx"
   "src/components/reviews/RatingSummary.tsx"
   "src/components/listing/draft-editor/EditablePhotoGallery.tsx"
   "src/components/listing/PhotoUploader.tsx"
   "src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx"
+  "src/components/auction/ParcelMap.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.
