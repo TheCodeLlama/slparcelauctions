@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
@@ -36,6 +37,22 @@ import lombok.extern.slf4j.Slf4j;
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 @Slf4j
 public class BotTaskExceptionHandler {
+
+    /**
+     * Propagates {@link ResponseStatusException} from bot services (e.g.
+     * {@link com.slparcelauctions.backend.auction.parcelscan.ParcelScanService})
+     * as the correct HTTP status. Without this, the global catch-all
+     * {@code Exception.class} handler swallows it as a 500.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ProblemDetail handleResponseStatus(ResponseStatusException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.resolve(e.getStatusCode().value()), e.getReason());
+        pd.setTitle("Request failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BOT_REQUEST_FAILED");
+        return pd;
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
