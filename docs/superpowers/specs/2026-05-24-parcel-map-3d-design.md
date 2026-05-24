@@ -23,7 +23,7 @@ ParcelInfoPanel (server component, existing)
          └── ParcelMap3D (NEW, lazy via dynamic())   — rendered when tab === "3d"
                 ├── three.js Scene
                 ├── PerspectiveCamera + OrbitControls (drei)
-                ├── per-cell BufferGeometry (tops + visible walls)
+                ├── bicubic-upsampled heightfield mesh (vertex-grid)
                 └── parcel-perimeter LineSegments (white wireframe)
 ```
 
@@ -31,17 +31,31 @@ Backend is untouched. `useParcelScan` is the existing data source for both views
 
 ## 3. The 3D scene
 
-### 3.1 Mesh
+### 3.1 Mesh — heightfield with bicubic upsampling
 
-One custom `BufferGeometry` containing 4096 cell-top quads + the visible walls (south-facing and east-facing only; north and west walls are occluded from typical orbit angles and skipping them halves the wall poly count without visible degradation when the camera passes through those orientations). Each cell-top quad is 4×4 m at the cell's elevation. Walls extend down from the cell top to the region's minimum elevation (so all walls share a common floor, which keeps the geometry simple).
+The scan delivers a 64x64 grid of elevation samples on a 256m region (one sample per 4m). Rendering each cell as a flat top + vertical walls produces a "Minecraft staircase" silhouette that does not match what's actually in-world — SL's terrain LOD interpolates smoothly between height samples, and the parcel-scanner data is the same kind of heightfield, just at 4m resolution.
 
-Vertex colors per face — same parcel-min-anchored gradient the 2D view uses:
-- Top faces: full color from `gradientColor(cellElevation - parcelMin)` (the existing `colors.ts` helper).
-- Wall faces: same hue, multiplied by `0.6` (darker, the "shaded side").
+The 3D view renders that heightfield as a **single continuous surface** (sample-as-vertices triangulation), bicubic-upsampled 2x to 129x129 vertices (vertex spacing = 2m) before triangulating. The 2x upsample factor is chosen so cell-edge coordinates (every 4m) fall exactly on upsampled vertices, which keeps the parcel-perimeter wireframe (§3.4) aligned with the mesh.
 
-Outside-parcel cells render in their full gradient color (NOT dimmed). The 3D view does not use the 2D view's dim-outside treatment — the white parcel wireframe (section 3.4) is the parcel-vs-non-parcel signal in 3D.
+**Geometry:**
+- 129x129 = 16,641 vertices on a regular grid (X = `colIndex * 2`, Z = `rowIndex * 2`, Y = bicubic-interpolated elevation at that grid point).
+- Triangulated as 128x128 quads, 2 triangles per quad = 32,768 triangles.
+- No walls. The terrain just slopes.
+- Per-vertex color from `gradientColor(elev - parcelMin)`. Triangle interiors interpolate smoothly between corner colors.
 
-Approximate poly count: 4096 tops × 2 tris + 4096 cells × 2 visible walls × 2 tris ≈ 24 k triangles. Negligible for any GPU made in the last 15 years.
+**Bicubic interpolation:**
+- Catmull-Rom spline in both axes. For each upsampled vertex `(u, v)` in normalized coords `[0, 1]`, sample 16 neighbors from the 64x64 grid (4x4 stencil), interpolate along rows, then along the resulting column.
+- Edge handling: clamp-to-edge (treat out-of-bounds indices as the nearest edge sample).
+- Pure CPU math, no shader. Runs once per scan-data change, memoized via `useMemo`.
+
+**Faithfulness disclaimer:** bicubic upsampling INVENTS heights between the 4m samples — they're a best-guess, not measurements. SL's own terrain LOD performs comparable interpolation when rendering the world to a viewer, so the upsampled mesh is closer to what a visitor actually sees in-world than the raw 4m staircase is.
+
+**Coloring:**
+- Top faces (the only faces — no walls): full `gradientColor(elev - parcelMin)` per vertex.
+- Outside-parcel vertices render in their full gradient color (NOT dimmed). The white parcel wireframe (§3.4) is the parcel-vs-non-parcel signal in 3D.
+- Lighting (one directional + ambient fill, §3.5) supplies the shading that would otherwise come from explicit wall colors.
+
+**Poly count:** ~33k triangles, 16k vertices. Negligible for any GPU made in the last 15 years; ships fine on mobile.
 
 ### 3.2 Camera
 
@@ -62,9 +76,11 @@ Keyboard controls: drei's OrbitControls doesn't ship keyboard rotation. The 3D v
 
 ### 3.4 Parcel boundary — white wireframe
 
-A `LineSegments` mesh whose vertices trace the parcel perimeter at the top of each parcel cell. Edge-detection logic mirrors the 2D cyan-outline pass: for each parcel cell, for each of its 4 edges, if the neighbor on that edge is outside the parcel (or off-grid), emit a line segment in 3D at the top of that cell along that edge.
+A `LineSegments` mesh whose endpoints trace the parcel perimeter along cell edges. Edge-detection logic mirrors the 2D cyan-outline pass: for each parcel cell (in the original 64x64 grid), for each of its 4 edges, if the neighbor on that edge is outside the parcel (or off-grid), emit a line segment along that edge.
 
-Material: `LineBasicMaterial({ color: 'white', linewidth: 2, depthTest: true })`. Depth-tested so the wireframe sits on the parcel cells' tops and disappears behind intervening hills — preserves spatial intuition ("the parcel is on the far side of this hill") rather than ghost-overlaying through geometry.
+Endpoint elevation comes from sampling the bicubic-upsampled mesh at the endpoint's (x, z). Because the 2x upsample factor places mesh vertices exactly on cell-edge coordinates (every 4m falls on every other 2m vertex), endpoints land cleanly on real mesh vertices — no second interpolation pass needed.
+
+Rendered via drei's `<Line>` component (which wraps `three-stdlib`'s `Line2`) so the `lineWidth: 2` actually renders at 2px. Raw `LineBasicMaterial.linewidth > 1` is silently ignored on most WebGL platforms. Color: white. Depth-tested so the wireframe sits on the mesh surface and disappears behind intervening hills, preserving spatial intuition ("the parcel is on the far side of this hill") rather than ghost-overlaying through geometry.
 
 The user's explicit ask for this section: the 2D view's dim-outside treatment is hard to read; a white bounding box around the parcel is always visible.
 
@@ -156,14 +172,18 @@ Both views consume the existing `useParcelScan` hook's payload:
 { gridSize: 64, cellSizeMeters: 4, layoutCellsBase64, heightCellsBase64, baseMeters, stepMeters, scannedAt }
 ```
 
-The 3D component decodes via the existing `lib/parcelMap/encoding.ts` helpers (`decodeBase64ToBytes`, `isCellInParcel`, `decodeElevationCell`). Per-cell color via `lib/parcelMap/colors.ts` (`gradientColor`, `MAP_COLORS`). No new helpers, no duplication.
+The 3D component decodes via the existing `lib/parcelMap/encoding.ts` helpers (`decodeBase64ToBytes`, `isCellInParcel`, `decodeElevationCell`). Per-vertex color via `lib/parcelMap/colors.ts` (`gradientColor`, `MAP_COLORS`). No new helpers in those existing modules — the bicubic interpolation + heightfield-geometry helpers live alongside in a new `lib/parcelMap3D/` module.
 
-Per-cell coordinates in the 3D scene:
+Coordinate system in the 3D scene:
 - World X = `col * 4` (east-west, 0 = west edge of region).
 - World Z = `row * 4` (north-south, 0 = south edge of region, increases northward).
 - World Y = `elev(row, col)` (vertical, meters above sea level).
 
 This matches SL's right-handed coordinate convention and keeps "north is +Z" — natural for a visitor looking at a map.
+
+**Upsample factor:** 2x (64 -> 129 vertices per axis, vertex spacing 2m). Chosen so cell-edge coordinates (every 4m) align exactly with upsampled vertices, which keeps the parcel-perimeter wireframe (§3.4) anchored to real mesh vertices.
+
+**Memoization:** `useMemo` keyed on the scan payload caches the upsampled height grid, the mesh `BufferGeometry`, and the perimeter point list. A re-render that doesn't change the scan data does no work.
 
 ## 7. Files
 
@@ -249,7 +269,9 @@ Also explicitly not in this spec:
 - **Bundle: lazy via `dynamic({ ssr: false })`.** Three.js ships only when the 3D tab is first opened. Default 2D visitor pays zero.
 - **Parcel boundary: white `LineSegments`, not the 2D dim-outside.** Per the user's explicit note that dim/light reads poorly on the existing pseudo-3D mock.
 - **No dim-outside in 3D.** The white wireframe is the parcel-vs-non-parcel signal.
-- **Geometry: per-cell tops + south/east walls only.** Halves wall polys without visible degradation at typical orbit angles.
-- **Lighting: one directional + ambient fill, no shadows.** Enough to differentiate top vs side; shadows add complexity for negligible gain at this scale.
+- **Geometry: sample-as-vertices heightfield, bicubic-upsampled 2x.** Replaces the earlier "per-cell tops + walls" design after the staircase silhouette didn't match what's actually in-world. SL's terrain LOD interpolates between samples; we do the same. ~33k tris vs ~24k tris of the earlier design — same order of magnitude on the GPU, much better visually.
+- **Bicubic via Catmull-Rom, CPU-side, no shader.** Pure math, unit-testable, ~30 lines of helper. A shader-based displacement would be marginally faster but adds GLSL we'd have to maintain; not worth it at this resolution.
+- **Wireframe via drei `<Line>`, not raw `<lineSegments>` + `LineBasicMaterial`.** `LineBasicMaterial.linewidth > 1` is silently ignored on most WebGL platforms; drei's `<Line>` wraps `three-stdlib`'s `Line2` to render real 2px lines.
+- **Lighting: one directional + ambient fill, no shadows.** Enough to differentiate slope direction; shadows add complexity for negligible gain at this scale.
 - **WebGL-absent fallback: auto-switch to 2D, preserve the localStorage preference.** Lets the visitor's preference survive a device change.
 - **Out of scope per issue #414:** water plane, snapshot texture, parcel walls. Deliberately deferred to keep this PR bounded.
