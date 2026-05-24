@@ -26,7 +26,7 @@ public enum BotTaskType {
     /**
      * Escrow Buy-Parcel ownership verification. Dispatched when the seller or
      * winner clicks "Verify purchase" on the escrow page during the Buy-Parcel
-     * sub-phase — the bot teleports to the parcel and reports the live owner
+     * sub-phase -- the bot teleports to the parcel and reports the live owner
      * UUID, so the backend can confirm-transfer, consume a role attempt
      * (definitive negative: seller/group still owns), or freeze the escrow
      * (stranger / parcel deleted). The 30-min background ownership polling
@@ -36,5 +36,15 @@ public enum BotTaskType {
      * {@code requestingRole} ("SELLER" / "BUYER") so the callback consumes the
      * correct attempt counter.
      */
-    VERIFY_BUY_OWNER
+    VERIFY_BUY_OWNER,
+
+    /**
+     * Parcel-scan task (spec 2026-05-23). On a newly-ACTIVE auction the bot
+     * teleports into the region, reads {@code Simulator.Parcels} for cell
+     * membership and {@code Simulator.Terrain} for elevation, and posts
+     * the packed rasters back via {@code POST /api/v1/bot/tasks/{id}/scan-result}.
+     * Non-gating: a failure leaves the {@code AuctionParcelLayout} +
+     * {@code AuctionParcelHeightMap} rows absent and the auction still runs.
+     */
+    SCAN_PARCEL
 }

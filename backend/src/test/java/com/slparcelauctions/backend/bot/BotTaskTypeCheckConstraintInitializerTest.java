@@ -11,9 +11,10 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * Verifies that the bot_tasks CHECK constraints cover all enum values after
  * ApplicationReadyEvent fires. The {@link BotTaskType} enum carries
- * {@code VERIFY_SELL_TO} again (spec 2026-05-17), so the type-check
- * constraint is (re)created on startup and must enumerate that value. The
- * status constraint still covers every {@link BotTaskStatus} value.
+ * {@code VERIFY_SELL_TO} (spec 2026-05-17), {@code VERIFY_BUY_OWNER}, and
+ * {@code SCAN_PARCEL} (spec 2026-05-23), so the type-check constraint is
+ * (re)created on startup and must enumerate all three values. The status
+ * constraint still covers every {@link BotTaskStatus} value.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -31,7 +32,10 @@ class BotTaskTypeCheckConstraintInitializerTest {
                  WHERE conname = 'bot_tasks_task_type_check'
                 """,
                 String.class);
-        assertThat(constraintDef).contains("VERIFY_SELL_TO");
+        assertThat(constraintDef)
+                .contains("VERIFY_SELL_TO")
+                .contains("VERIFY_BUY_OWNER")
+                .contains("SCAN_PARCEL");
     }
 
     @Test
