@@ -4,7 +4,6 @@ import java.time.OffsetDateTime;
 import java.util.Base64;
 
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.parcelscan.dto.BotScanResultRequest;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
@@ -34,7 +33,6 @@ public class ParcelScanService {
     private final AuctionParcelHeightMapRepository heightRepo;
     private final BotTaskRepository botTaskRepo;
     private final BotTaskService botTaskService;
-    private final AuctionRepository auctionRepo;
 
     /**
      * Enqueue a SCAN_PARCEL bot task for this auction if eligible:
@@ -93,8 +91,7 @@ public class ParcelScanService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "heightStepMeters must be > 0 and finite");
         }
 
-        Auction auction = auctionRepo.findById(task.getAuction().getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "auction not found"));
+        Auction auction = task.getAuction();
 
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -117,5 +114,6 @@ public class ParcelScanService {
                 .build());
 
         botTaskService.markCompleted(task);
+        log.info("Scan result task {} marked COMPLETED for auction {}", task.getId(), auction.getId());
     }
 }
