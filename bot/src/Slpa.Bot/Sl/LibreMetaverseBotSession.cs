@@ -133,11 +133,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
         while (!ct.IsCancellationRequested)
         {
             TransitionTo(SessionState.Starting);
-            var loginParams = _client.Network.DefaultLoginParams(
-                FirstName(), LastName(), _opts.Password,
-                "Slpa.Bot", "1.0");
-            loginParams.URI = LoginUri;
-            loginParams.Start = _opts.StartLocation;
+            var loginParams = BuildLoginParams(_client, _opts.Username, _opts.Password, _opts.StartLocation);
 
             bool loggedIn;
             try
@@ -722,5 +718,27 @@ public sealed class LibreMetaverseBotSession : IBotSession
     {
         var parts = _opts.Username.Split(' ', 2);
         return parts.Length > 1 ? parts[1] : "Resident";
+    }
+
+    /// <summary>
+    /// Builds the <see cref="LoginParams"/> that <see cref="RunLoop"/> passes to
+    /// <see cref="TryLoginAsync"/>. Extracted for unit-testability via
+    /// <c>InternalsVisibleTo("Slpa.Bot.Tests")</c>.
+    /// </summary>
+    internal static LoginParams BuildLoginParams(
+        GridClient client, string username, string password, string startLocation)
+    {
+        var parts = username.Split(' ', 2);
+        string firstName = parts.Length > 0 ? parts[0] : username;
+        string lastName  = parts.Length > 1 ? parts[1] : "Resident";
+
+        var p = client.Network.DefaultLoginParams(firstName, lastName, password, "Slpa.Bot", "1.0");
+        p.URI   = LoginUri;
+        p.Start = startLocation;
+        // Strip all optional payload requests. The scan bot needs only
+        // teleport + Parcels + Terrain; the default 16-option list has
+        // triggered InternalDictionary.Add duplicate-key crashes on reconnect.
+        p.Options = Array.Empty<string>();
+        return p;
     }
 }

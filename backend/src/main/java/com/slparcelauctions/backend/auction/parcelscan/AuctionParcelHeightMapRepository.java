@@ -11,4 +11,6 @@ public interface AuctionParcelHeightMapRepository extends JpaRepository<AuctionP
     boolean existsByAuctionId(Long auctionId);
 
     Optional<AuctionParcelHeightMap> findByAuctionId(Long auctionId);
+
+    void deleteByAuctionId(Long auctionId);
 }
