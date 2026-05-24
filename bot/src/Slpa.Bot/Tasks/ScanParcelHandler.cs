@@ -199,14 +199,13 @@ public sealed class ScanParcelHandler
     private async Task PostFailedAsync(
         BotTaskResponse task, string reason, CancellationToken ct)
     {
+        HttpResponseMessage resp;
         try
         {
-            await _backend.PostScanFailedAsync(
+            resp = await _backend.PostScanFailedAsync(
                 task.Id,
                 new ScanFailedRequest(reason),
                 ct).ConfigureAwait(false);
-            _log.LogInformation(
-                "SCAN_PARCEL {Id} -> FAILED ({Reason})", task.Id, reason);
         }
         catch (HttpRequestException ex)
         {
@@ -214,6 +213,25 @@ public sealed class ScanParcelHandler
                 "SCAN_PARCEL {Id} backend fail-report POST failed (network); " +
                 "leaving for backend sweep",
                 task.Id);
+            return;
+        }
+
+        using (resp)
+        {
+            if (resp.StatusCode == HttpStatusCode.NoContent ||
+                resp.StatusCode == HttpStatusCode.Conflict)
+            {
+                // 204 = recorded; 409 = already recorded by a prior attempt.
+                _log.LogInformation(
+                    "SCAN_PARCEL {Id} -> FAILED ({Reason}) [{Status}]",
+                    task.Id, reason, (int)resp.StatusCode);
+                return;
+            }
+
+            _log.LogWarning(
+                "SCAN_PARCEL {Id} fail-report backend returned {Status}; " +
+                "leaving for backend sweep",
+                task.Id, (int)resp.StatusCode);
         }
     }
 }

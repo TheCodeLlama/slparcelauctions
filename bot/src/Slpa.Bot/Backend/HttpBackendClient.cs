@@ -136,10 +136,10 @@ public sealed class HttpBackendClient : IBackendClient
     }
 
     /// <inheritdoc/>
-    public async Task PostScanFailedAsync(
+    public async Task<HttpResponseMessage> PostScanFailedAsync(
         long taskId, ScanFailedRequest body, CancellationToken ct)
     {
-        using var resp = await SendWithRetryAsync(() =>
+        return await SendWithRetryAsync(() =>
         {
             var req = new HttpRequestMessage(
                 HttpMethod.Post,
@@ -149,7 +149,6 @@ public sealed class HttpBackendClient : IBackendClient
             };
             return req;
         }, ct).ConfigureAwait(false);
-        resp.EnsureSuccessStatusCode();
     }
 
     private async Task<HttpResponseMessage> SendWithRetryAsync(

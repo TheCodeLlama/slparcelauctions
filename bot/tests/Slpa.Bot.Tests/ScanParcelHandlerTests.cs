@@ -36,7 +36,7 @@ public sealed class ScanParcelHandlerTests
             .Setup(b => b.PostScanFailedAsync(
                 It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.NoContent));
     }
 
     private ScanParcelHandler NewHandler() =>
@@ -249,6 +249,46 @@ public sealed class ScanParcelHandlerTests
                 It.IsAny<long>(), It.IsAny<ScanResultRequest>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task BackendReturns409OnPostFailed_TreatedAsSuccess()
+    {
+        // 409 on scan-failed = backend already recorded this failure; should not warn.
+        const uint ourLocalId = 30u;
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        _session.ParcelLocalIdsPolicy = () => new uint[64, 64];
+        _session.TerrainHeightsPolicy = () => FlatTerrain(10f);
+
+        // Mark one cell as not loaded so PostFailedAsync is invoked.
+        _session.TerrainHeightsLoadedPolicy = () =>
+        {
+            var loaded = new bool[64, 64];
+            for (int r = 0; r < 64; r++)
+                for (int c = 0; c < 64; c++)
+                    loaded[r, c] = true;
+            loaded[0, 0] = false;
+            return loaded;
+        };
+
+        _backend
+            .Setup(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Conflict));
+
+        // Should complete without throwing or posting a scan result.
+        var act = async () => await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+        await act.Should().NotThrowAsync();
+
+        _backend.Verify(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _backend.Verify(b => b.PostScanResultAsync(
+                It.IsAny<long>(), It.IsAny<ScanResultRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

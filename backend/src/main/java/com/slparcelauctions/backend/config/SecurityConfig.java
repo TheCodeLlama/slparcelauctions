@@ -310,10 +310,12 @@ public class SecurityConfig {
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via
                         // MessageDigest.isEqual). The .access(...) matcher is the
-                        // single trust boundary for every /api/v1/bot/** path:
-                        // /claim, /pending, /{id}/verify, and /{id}/monitor
-                        // (Task 5) all gate through here. The Task 4 deprecated
-                        // PUT /{id} shim was removed in Task 12.
+                        // single trust boundary for every /api/v1/bot/** path.
+                        // Current bot endpoints: POST /claim, GET /pending,
+                        // POST /{id}/result (VERIFY_SELL_TO), POST /{id}/result
+                        // (heartbeat), POST /{id}/verify-buy-owner-result
+                        // (VERIFY_BUY_OWNER), POST /{id}/scan-result (SCAN_PARCEL
+                        // success), POST /{id}/scan-failed (SCAN_PARCEL failure).
                         // FOOTGUNS §B.5: matcher order is first-match-wins, so
                         // this rule MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/bot/**").access((authentication, ctx) ->

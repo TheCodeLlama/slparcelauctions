@@ -46,12 +46,14 @@ public interface IBackendClient
 
     /// <summary>
     /// Reports a terminal SCAN_PARCEL failure to the backend
-    /// (<c>POST /api/v1/bot/tasks/{taskId}/scan-failed</c>). Marks the task
-    /// FAILED with the supplied reason string so the admin panel can show why
-    /// the scan did not complete. Shares the bearer auth + 5xx retry ladder.
+    /// (<c>POST /api/v1/bot/tasks/{taskId}/scan-failed</c>). Returns the raw
+    /// <see cref="HttpResponseMessage"/> so the caller can inspect the status
+    /// code (204 = recorded, 409 = already recorded, 4xx = rejected). The
+    /// caller owns disposal. Shares the bearer auth + 5xx retry ladder.
     /// Throws <see cref="AuthConfigException"/> on 401.
     /// </summary>
-    Task PostScanFailedAsync(long taskId, ScanFailedRequest body, CancellationToken ct);
+    Task<HttpResponseMessage> PostScanFailedAsync(
+        long taskId, ScanFailedRequest body, CancellationToken ct);
 }
 
 /// <summary>
