@@ -32,6 +32,11 @@ public sealed class ScanParcelHandlerTests
             .Callback<long, ScanResultRequest, CancellationToken>(
                 (_, body, _) => _captured = body)
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        _backend
+            .Setup(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.NoContent));
     }
 
     private ScanParcelHandler NewHandler() =>
@@ -247,6 +252,46 @@ public sealed class ScanParcelHandlerTests
     }
 
     [Fact]
+    public async Task BackendReturns409OnPostFailed_TreatedAsSuccess()
+    {
+        // 409 on scan-failed = backend already recorded this failure; should not warn.
+        const uint ourLocalId = 30u;
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        _session.ParcelLocalIdsPolicy = () => new uint[64, 64];
+        _session.TerrainHeightsPolicy = () => FlatTerrain(10f);
+
+        // Mark one cell as not loaded so PostFailedAsync is invoked.
+        _session.TerrainHeightsLoadedPolicy = () =>
+        {
+            var loaded = new bool[64, 64];
+            for (int r = 0; r < 64; r++)
+                for (int c = 0; c < 64; c++)
+                    loaded[r, c] = true;
+            loaded[0, 0] = false;
+            return loaded;
+        };
+
+        _backend
+            .Setup(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.Conflict));
+
+        // Should complete without throwing or posting a scan result.
+        var act = async () => await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+        await act.Should().NotThrowAsync();
+
+        _backend.Verify(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _backend.Verify(b => b.PostScanResultAsync(
+                It.IsAny<long>(), It.IsAny<ScanResultRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task BackendReturns400_DoesNotRetry()
     {
         const uint ourLocalId = 8u;
@@ -327,5 +372,95 @@ public sealed class ScanParcelHandlerTests
         layout[0].Should().Be(0x80, "bit index 0 -> byte 0, bit 7 (MSB-first)");
         layout.Skip(1).Should().AllBeEquivalentTo((byte)0,
             "no other cells should be set");
+    }
+
+    [Fact]
+    public async Task WaitForRegionTerrain_IsCalledBeforeSampling()
+    {
+        // Verify WaitForRegionTerrainAsync is invoked exactly once and before
+        // GetRegionTerrainHeights in the call log.
+        const uint ourLocalId = 20u;
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        _session.ParcelLocalIdsPolicy = () => new uint[64, 64];
+        _session.TerrainHeightsPolicy = () => FlatTerrain(10f);
+
+        await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+
+        var waitIdx = _session.CallLog.IndexOf(nameof(IBotSession.WaitForRegionTerrainAsync));
+        var sampleIdx = _session.CallLog.IndexOf(nameof(IBotSession.GetRegionTerrainHeights));
+        waitIdx.Should().BeGreaterThanOrEqualTo(0, "WaitForRegionTerrainAsync must be called");
+        sampleIdx.Should().BeGreaterThanOrEqualTo(0, "GetRegionTerrainHeights must be called");
+        waitIdx.Should().BeLessThan(sampleIdx,
+            "WaitForRegionTerrainAsync must be called before GetRegionTerrainHeights");
+        _session.CallLog.Count(c => c == nameof(IBotSession.WaitForRegionTerrainAsync))
+            .Should().Be(1, "WaitForRegionTerrainAsync should be called exactly once");
+    }
+
+    [Fact]
+    public async Task TerrainNotLoaded_PostsFailureAndDoesNotPostScanResult()
+    {
+        // When some cells fail to load (Loaded[row,col] = false), handler should
+        // POST scan-failed with TERRAIN_NOT_LOADED and not post a scan result.
+        const uint ourLocalId = 21u;
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        _session.ParcelLocalIdsPolicy = () => new uint[64, 64];
+        _session.TerrainHeightsPolicy = () => FlatTerrain(10f);
+
+        // Mark one cell as not loaded.
+        _session.TerrainHeightsLoadedPolicy = () =>
+        {
+            var loaded = new bool[64, 64];
+            for (int r = 0; r < 64; r++)
+                for (int c = 0; c < 64; c++)
+                    loaded[r, c] = true;
+            loaded[0, 0] = false; // one cell failed to load
+            return loaded;
+        };
+
+        await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+
+        _backend.Verify(b => b.PostScanFailedAsync(
+                42L,
+                It.Is<ScanFailedRequest>(r => r.Reason == "TERRAIN_NOT_LOADED"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _backend.Verify(b => b.PostScanResultAsync(
+                It.IsAny<long>(), It.IsAny<ScanResultRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task AllCellsLoaded_HappyPath_PostsResult()
+    {
+        // When all cells load successfully, the handler should post a scan result
+        // and not post a failure.
+        const uint ourLocalId = 22u;
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        var allOwned = new uint[64, 64];
+        for (int r = 0; r < 64; r++)
+            for (int c = 0; c < 64; c++)
+                allOwned[r, c] = ourLocalId;
+        _session.ParcelLocalIdsPolicy = () => allOwned;
+
+        // Varied terrain so step != clamped minimum.
+        var terrain = new float[64, 64];
+        for (int r = 0; r < 64; r++)
+            for (int c = 0; c < 64; c++)
+                terrain[r, c] = 30f + r;
+        _session.TerrainHeightsPolicy = () => terrain;
+        // TerrainHeightsLoadedPolicy defaults to all-true.
+
+        await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+
+        _backend.Verify(b => b.PostScanResultAsync(
+                42L,
+                It.IsAny<ScanResultRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _backend.Verify(b => b.PostScanFailedAsync(
+                It.IsAny<long>(), It.IsAny<ScanFailedRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
