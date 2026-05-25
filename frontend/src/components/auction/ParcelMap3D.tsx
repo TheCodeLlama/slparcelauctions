@@ -6,6 +6,7 @@ import { Line, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 
 import { cn } from "@/lib/cn";
 import { useParcelScan } from "@/hooks/useParcelScan";
+import { useParcelMapColorMode } from "@/hooks/useParcelMapColorMode";
 import { decodeBase64ToBytes } from "@/lib/parcelMap/encoding";
 import {
   bicubicUpsample,
@@ -14,10 +15,12 @@ import {
   computeCameraDefaults,
   computeParcelStats,
   computeRegionBounds,
+  computeSlopeGrid,
   decodeElevationGrid,
   isWebGLAvailable,
 } from "@/lib/parcelMap3D/geometry";
 import { ParcelMap3DSkeleton } from "./ParcelMap3DSkeleton";
+import { ParcelMap3DColorModeToggle } from "./ParcelMap3DColorModeToggle";
 
 interface Props {
   publicId: string;
@@ -55,6 +58,7 @@ export default function ParcelMap3D({
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
+  const [colorMode, setColorMode] = useParcelMapColorMode();
 
   useEffect(() => {
     if (!webglOk) onWebGLUnavailable?.();
@@ -82,6 +86,11 @@ export default function ParcelMap3D({
     return bicubicUpsample(rawGrid);
   }, [rawGrid]);
 
+  const slopeGrid = useMemo(() => {
+    if (!upsampledGrid) return null;
+    return computeSlopeGrid(upsampledGrid);
+  }, [upsampledGrid]);
+
   const stats = useMemo(() => {
     if (!decoded || !rawGrid) return null;
     return computeParcelStats(decoded.layoutCells, rawGrid);
@@ -93,9 +102,15 @@ export default function ParcelMap3D({
   }, [upsampledGrid]);
 
   const meshGeometry = useMemo(() => {
-    if (!upsampledGrid || !stats) return null;
-    return buildHeightfieldGeometry(upsampledGrid, stats.parcelMin);
-  }, [upsampledGrid, stats]);
+    if (!upsampledGrid || !stats || !bounds || !slopeGrid) return null;
+    return buildHeightfieldGeometry(
+      upsampledGrid,
+      stats.parcelMin,
+      bounds.rMin - 8,
+      colorMode,
+      slopeGrid,
+    );
+  }, [upsampledGrid, stats, bounds, colorMode, slopeGrid]);
 
   // Dispose GPU-side BufferGeometry when it changes or the component unmounts
   // to prevent memory leaks.
@@ -130,7 +145,7 @@ export default function ParcelMap3D({
   if (isPending) return <ParcelMap3DSkeleton className={className} />;
   if (
     isError || !data || !decoded || !stats || !bounds
-    || !meshGeometry || !perimeterPoints || !camera
+    || !meshGeometry || !perimeterPoints || !camera || !slopeGrid
   ) {
     return null;
   }
@@ -140,7 +155,7 @@ export default function ParcelMap3D({
       role="img"
       aria-label="Interactive 3D region and parcel elevation map"
       className={cn(
-        "aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle",
+        "relative aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle",
         className,
       )}
     >
@@ -174,6 +189,9 @@ export default function ParcelMap3D({
           />
         )}
       </Canvas>
+      <div className="absolute top-2 right-2">
+        <ParcelMap3DColorModeToggle mode={colorMode} onChange={setColorMode} />
+      </div>
     </div>
   );
 }

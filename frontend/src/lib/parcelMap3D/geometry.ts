@@ -4,7 +4,7 @@ import {
   Float32BufferAttribute,
 } from "three";
 
-import { gradientColor } from "@/lib/parcelMap/colors";
+import { gradientColor, slopeColor } from "@/lib/parcelMap/colors";
 import { isCellInParcel } from "@/lib/parcelMap/encoding";
 
 const GRID = 64;
@@ -17,6 +17,42 @@ export const UPSAMPLE_FACTOR = 2;
 export const UPSAMPLED_GRID = GRID * UPSAMPLE_FACTOR + 1;
 /** Spacing between upsampled vertices in meters (REGION_M / (UPSAMPLED_GRID - 1)). */
 export const UPSAMPLED_SPACING_M = REGION_M / (UPSAMPLED_GRID - 1);
+
+/**
+ * Wall-vertex color multiplier vs the top-surface color at the same X/Z.
+ * 0.55 was chosen during brainstorming as the visual weight of a "darker
+ * shaded side" -- clearly distinct from the top while still recognizable
+ * as the same terrain material. Both top and bottom edges of every wall
+ * vertex use this multiplier so the wall reads as a uniformly-dimmed strip.
+ */
+const WALL_DIM = 0.55;
+/**
+ * Bottom-plane face color. Fixed neutral earth tone, not derived from the
+ * terrain. The floor is rarely visible (only on aggressive low-angle orbit
+ * that gets the camera below the region), so this is defensive coverage to
+ * avoid a transparent void rather than a primary visual element.
+ */
+const FLOOR_COLOR = { r: 60, g: 50, b: 40 };
+
+/**
+ * Vertex color for a top-surface vertex, dispatched by color mode. Returns
+ * {@link gradientColor}'s elevation-delta hue in {@code "elevation"} mode
+ * or {@link slopeColor}'s slope-angle hue in {@code "slope"} mode.
+ */
+function topColorAt(
+  uRow: number,
+  uCol: number,
+  upsampled: Float32Array,
+  slopeGrid: Float32Array,
+  parcelMin: number,
+  mode: "elevation" | "slope",
+) {
+  const idx = uRow * UPSAMPLED_GRID + uCol;
+  if (mode === "elevation") {
+    return gradientColor(upsampled[idx] - parcelMin);
+  }
+  return slopeColor(slopeGrid[idx]);
+}
 
 export interface RegionBounds {
   rMin: number;
@@ -123,6 +159,44 @@ export function bicubicUpsample(grid: Float32Array): Float32Array {
   return out;
 }
 
+/**
+ * Closed-form finite-difference slope at every upsampled vertex. Returns a
+ * {@link UPSAMPLED_GRID} squared Float32Array of slope angles in radians
+ * (0 = flat, pi/2 = vertical). Edges use one-sided differences (clamp-to-edge);
+ * interior vertices use centered differences.
+ *
+ *   dhdx = (h[uRow,   uCol+1] - h[uRow,   uCol-1]) / (2 * UPSAMPLED_SPACING_M)
+ *   dhdz = (h[uRow+1, uCol  ] - h[uRow-1, uCol  ]) / (2 * UPSAMPLED_SPACING_M)
+ *   slope = atan(sqrt(dhdx*dhdx + dhdz*dhdz))
+ *
+ * Pure math; safe to memoize via {@code useMemo}.
+ */
+export function computeSlopeGrid(upsampled: Float32Array): Float32Array {
+  const out = new Float32Array(UPSAMPLED_GRID * UPSAMPLED_GRID);
+  const inv2 = 1 / (2 * UPSAMPLED_SPACING_M);
+  const invEdge = 1 / UPSAMPLED_SPACING_M;
+  for (let uRow = 0; uRow < UPSAMPLED_GRID; uRow++) {
+    const rowNorth = Math.min(UPSAMPLED_GRID - 1, uRow + 1);
+    const rowSouth = Math.max(0, uRow - 1);
+    const rowSpanIsCentered = rowNorth - rowSouth === 2;
+    for (let uCol = 0; uCol < UPSAMPLED_GRID; uCol++) {
+      const colEast = Math.min(UPSAMPLED_GRID - 1, uCol + 1);
+      const colWest = Math.max(0, uCol - 1);
+      const colSpanIsCentered = colEast - colWest === 2;
+      const dhdx =
+        (upsampled[uRow * UPSAMPLED_GRID + colEast] -
+          upsampled[uRow * UPSAMPLED_GRID + colWest]) *
+        (colSpanIsCentered ? inv2 : invEdge);
+      const dhdz =
+        (upsampled[rowNorth * UPSAMPLED_GRID + uCol] -
+          upsampled[rowSouth * UPSAMPLED_GRID + uCol]) *
+        (rowSpanIsCentered ? inv2 : invEdge);
+      out[uRow * UPSAMPLED_GRID + uCol] = Math.atan(Math.sqrt(dhdx * dhdx + dhdz * dhdz));
+    }
+  }
+  return out;
+}
+
 /** Min and max elevation across the (raw or upsampled) elevation grid. */
 export function computeRegionBounds(grid: Float32Array): RegionBounds {
   let min = Number.POSITIVE_INFINITY;
@@ -162,27 +236,51 @@ export function computeParcelStats(
 
 /**
  * Build the heightfield mesh as a single indexed {@link BufferGeometry}.
- * 129x129 vertices on a regular grid, two CCW triangles per quad. Vertex
- * colors come from {@code gradientColor(elev - parcelMin)} so the gradient
- * interpolates smoothly across triangle interiors. No walls -- the terrain
- * is a continuous surface.
+ * Includes the top surface (129x129 vertices, smooth heightfield), four
+ * extruded perimeter walls reaching down to {@code floorY}, and a bottom
+ * floor quad at {@code floorY}. Vertex colors come from one of two helpers
+ * depending on {@code mode}: elevation (delta from parcelMin) or slope (rad).
+ * Walls reuse the perimeter top color multiplied by {@link WALL_DIM}; both
+ * top and bottom edges of each wall share the same color. Floor uses a
+ * fixed neutral earth tone.
  *
- * Coordinate system:
- *   X = uCol * UPSAMPLED_SPACING_M (east, +X)
- *   Y = upsampled[uRow * UPSAMPLED_GRID + uCol]
- *   Z = uRow * UPSAMPLED_SPACING_M (north, +Z, "north is +Z")
+ * Vertex layout (used by tests asserting positions/colors/normals by index):
+ *   [0 .. TOP_VERTS)                          top mesh, row-major (uRow * UPSAMPLED_GRID + uCol)
+ *   [TOP_VERTS .. +PER_WALL_VERTS)            south wall, pairs of (top-edge, bottom-edge) by uCol
+ *   [+PER_WALL_VERTS .. +2*PER_WALL_VERTS)    north wall, same pair ordering by uCol
+ *   [+2*PER_WALL_VERTS .. +3*PER_WALL_VERTS)  west wall, pairs by uRow
+ *   [+3*PER_WALL_VERTS .. +4*PER_WALL_VERTS)  east wall, pairs by uRow
+ *   [TOP_VERTS + WALL_VERTS ..)               floor (4 vertices, SW SE NW NE)
+ *
+ * Wall triangle winding is CCW from outside the region so face normals
+ * point outward (south=-Z, north=+Z, west=-X, east=+X). Floor winding is
+ * CCW from below so face normal points -Y.
  */
 export function buildHeightfieldGeometry(
   upsampled: Float32Array,
   parcelMin: number,
+  floorY: number,
+  mode: "elevation" | "slope",
+  slopeGrid: Float32Array,
 ): BufferGeometry {
-  const vertexCount = UPSAMPLED_GRID * UPSAMPLED_GRID;
-  const quadCount = (UPSAMPLED_GRID - 1) * (UPSAMPLED_GRID - 1);
+  const TOP_VERTS = UPSAMPLED_GRID * UPSAMPLED_GRID;
+  const QUAD_COUNT = (UPSAMPLED_GRID - 1) * (UPSAMPLED_GRID - 1);
+  const TOP_INDICES = QUAD_COUNT * 6;
+  const PER_WALL_VERTS = 2 * UPSAMPLED_GRID;
+  const PER_WALL_INDICES = (UPSAMPLED_GRID - 1) * 6;
+  const WALL_VERTS = 4 * PER_WALL_VERTS;
+  const WALL_INDICES = 4 * PER_WALL_INDICES;
+  const FLOOR_VERTS = 4;
+  const FLOOR_INDICES = 6;
 
-  const positions = new Float32Array(vertexCount * 3);
-  const colors = new Float32Array(vertexCount * 3);
-  const indices = new Uint32Array(quadCount * 6);
+  const totalVerts = TOP_VERTS + WALL_VERTS + FLOOR_VERTS;
+  const totalIndices = TOP_INDICES + WALL_INDICES + FLOOR_INDICES;
 
+  const positions = new Float32Array(totalVerts * 3);
+  const colors = new Float32Array(totalVerts * 3);
+  const indices = new Uint32Array(totalIndices);
+
+  // ---- 1. Top surface ----
   for (let uRow = 0; uRow < UPSAMPLED_GRID; uRow++) {
     for (let uCol = 0; uCol < UPSAMPLED_GRID; uCol++) {
       const vIdx = uRow * UPSAMPLED_GRID + uCol;
@@ -192,13 +290,12 @@ export function buildHeightfieldGeometry(
       positions[vIdx * 3 + 0] = x;
       positions[vIdx * 3 + 1] = y;
       positions[vIdx * 3 + 2] = z;
-      const c = gradientColor(y - parcelMin);
+      const c = topColorAt(uRow, uCol, upsampled, slopeGrid, parcelMin, mode);
       colors[vIdx * 3 + 0] = c.r / 255;
       colors[vIdx * 3 + 1] = c.g / 255;
       colors[vIdx * 3 + 2] = c.b / 255;
     }
   }
-
   let iIdx = 0;
   for (let uRow = 0; uRow < UPSAMPLED_GRID - 1; uRow++) {
     for (let uCol = 0; uCol < UPSAMPLED_GRID - 1; uCol++) {
@@ -206,14 +303,141 @@ export function buildHeightfieldGeometry(
       const se = sw + 1;
       const nw = sw + UPSAMPLED_GRID;
       const ne = nw + 1;
-      // Two CCW triangles when viewed from +Y so face normals point up.
-      // Quick check: (ne - sw) cross (se - sw) = (2,0,2) cross (2,0,0)
-      // = (0, +4, 0) for a unit quad. +Y is up. computeVertexNormals
-      // averages face normals so vertex normals follow.
       indices[iIdx++] = sw; indices[iIdx++] = ne; indices[iIdx++] = se;
       indices[iIdx++] = sw; indices[iIdx++] = nw; indices[iIdx++] = ne;
     }
   }
+
+  // ---- 2. Walls (south, north, west, east in this order) ----
+  let vCursor = TOP_VERTS;
+
+  // Emit one wall strip. Each call writes `perimeterCount` vertex-pairs
+  // (top-edge + bottom-edge at each perimeter point) and `perimeterCount - 1`
+  // quads. The `quadIndices` callback maps the four base vertex offsets for
+  // each quad (top-edge-A, bottom-edge-A, top-edge-B, bottom-edge-B) to 6
+  // CCW triangle indices; winding direction differs per wall so face normals
+  // point OUTWARD from the region center (south=-Z, north=+Z, west=-X,
+  // east=+X). Wall color = top-surface color at the same perimeter X/Z,
+  // multiplied by WALL_DIM for both the top and bottom edge of the wall.
+  function emitWall(opts: {
+    perimeterIndex: (i: number) => number;
+    perimeterX: (i: number) => number;
+    perimeterZ: (i: number) => number;
+    perimeterCount: number;
+    quadIndices: (
+      baseTopA: number, baseBottomA: number,
+      baseTopB: number, baseBottomB: number,
+    ) => number[];
+  }): number {
+    const wallVertStart = vCursor;
+    for (let i = 0; i < opts.perimeterCount; i++) {
+      const topIdx = opts.perimeterIndex(i);
+      const x = opts.perimeterX(i);
+      const z = opts.perimeterZ(i);
+      const topY = upsampled[topIdx];
+
+      positions[vCursor * 3 + 0] = x;
+      positions[vCursor * 3 + 1] = topY;
+      positions[vCursor * 3 + 2] = z;
+      positions[(vCursor + 1) * 3 + 0] = x;
+      positions[(vCursor + 1) * 3 + 1] = floorY;
+      positions[(vCursor + 1) * 3 + 2] = z;
+
+      const topR = colors[topIdx * 3 + 0];
+      const topG = colors[topIdx * 3 + 1];
+      const topB = colors[topIdx * 3 + 2];
+      colors[vCursor * 3 + 0] = topR * WALL_DIM;
+      colors[vCursor * 3 + 1] = topG * WALL_DIM;
+      colors[vCursor * 3 + 2] = topB * WALL_DIM;
+      colors[(vCursor + 1) * 3 + 0] = topR * WALL_DIM;
+      colors[(vCursor + 1) * 3 + 1] = topG * WALL_DIM;
+      colors[(vCursor + 1) * 3 + 2] = topB * WALL_DIM;
+
+      vCursor += 2;
+    }
+    for (let i = 0; i < opts.perimeterCount - 1; i++) {
+      const baseTopA = wallVertStart + i * 2;
+      const baseBottomA = baseTopA + 1;
+      const baseTopB = wallVertStart + (i + 1) * 2;
+      const baseBottomB = baseTopB + 1;
+      const tri = opts.quadIndices(baseTopA, baseBottomA, baseTopB, baseBottomB);
+      for (let t = 0; t < tri.length; t++) indices[iIdx++] = tri[t];
+    }
+    return vCursor;
+  }
+
+  // South wall: uRow = 0, z = 0. CCW from outside (-Z side) -> normal = -Z.
+  // Viewed from -Z: uCol increases left to right. For -Z normal, each quad's
+  // CCW winding (from -Z perspective) = topA, topB, bottomB, topA, bottomB, bottomA.
+  vCursor = emitWall({
+    perimeterIndex: (uCol) => 0 * UPSAMPLED_GRID + uCol,
+    perimeterX: (uCol) => uCol * UPSAMPLED_SPACING_M,
+    perimeterZ: () => 0,
+    perimeterCount: UPSAMPLED_GRID,
+    quadIndices: (baseTopA, baseBottomA, baseTopB, baseBottomB) => [
+      baseTopA, baseTopB, baseBottomB,
+      baseTopA, baseBottomB, baseBottomA,
+    ],
+  });
+
+  // North wall: uRow = UPSAMPLED_GRID-1, z = max. CCW from outside (+Z side) -> normal = +Z.
+  vCursor = emitWall({
+    perimeterIndex: (uCol) => (UPSAMPLED_GRID - 1) * UPSAMPLED_GRID + uCol,
+    perimeterX: (uCol) => uCol * UPSAMPLED_SPACING_M,
+    perimeterZ: () => (UPSAMPLED_GRID - 1) * UPSAMPLED_SPACING_M,
+    perimeterCount: UPSAMPLED_GRID,
+    quadIndices: (baseTopA, baseBottomA, baseTopB, baseBottomB) => [
+      baseTopA, baseBottomA, baseBottomB,
+      baseTopA, baseBottomB, baseTopB,
+    ],
+  });
+
+  // West wall: uCol = 0, x = 0. CCW from outside (-X side) -> normal = -X.
+  vCursor = emitWall({
+    perimeterIndex: (uRow) => uRow * UPSAMPLED_GRID,
+    perimeterX: () => 0,
+    perimeterZ: (uRow) => uRow * UPSAMPLED_SPACING_M,
+    perimeterCount: UPSAMPLED_GRID,
+    quadIndices: (baseTopA, baseBottomA, baseTopB, baseBottomB) => [
+      baseTopA, baseBottomA, baseBottomB,
+      baseTopA, baseBottomB, baseTopB,
+    ],
+  });
+
+  // East wall: uCol = UPSAMPLED_GRID-1, x = max. CCW from outside (+X side) -> normal = +X.
+  vCursor = emitWall({
+    perimeterIndex: (uRow) => uRow * UPSAMPLED_GRID + (UPSAMPLED_GRID - 1),
+    perimeterX: () => (UPSAMPLED_GRID - 1) * UPSAMPLED_SPACING_M,
+    perimeterZ: (uRow) => uRow * UPSAMPLED_SPACING_M,
+    perimeterCount: UPSAMPLED_GRID,
+    quadIndices: (baseTopA, baseBottomA, baseTopB, baseBottomB) => [
+      baseTopA, baseTopB, baseBottomB,
+      baseTopA, baseBottomB, baseBottomA,
+    ],
+  });
+
+  // ---- 3. Floor ----
+  const floorStart = TOP_VERTS + WALL_VERTS;
+  const REGION_END = (UPSAMPLED_GRID - 1) * UPSAMPLED_SPACING_M; // = REGION_M (256 m)
+  const floorCorners: Array<[number, number, number]> = [
+    [0, floorY, 0],
+    [REGION_END, floorY, 0],
+    [0, floorY, REGION_END],
+    [REGION_END, floorY, REGION_END],
+  ];
+  for (let i = 0; i < 4; i++) {
+    const [fx, fy, fz] = floorCorners[i];
+    positions[(floorStart + i) * 3 + 0] = fx;
+    positions[(floorStart + i) * 3 + 1] = fy;
+    positions[(floorStart + i) * 3 + 2] = fz;
+    colors[(floorStart + i) * 3 + 0] = FLOOR_COLOR.r / 255;
+    colors[(floorStart + i) * 3 + 1] = FLOOR_COLOR.g / 255;
+    colors[(floorStart + i) * 3 + 2] = FLOOR_COLOR.b / 255;
+  }
+  // Two CCW triangles seen from -Y (below) so face normal points -Y.
+  // SW=0, SE=1, NW=2, NE=3. Clockwise from above = CCW from below -> -Y normal.
+  indices[iIdx++] = floorStart + 0; indices[iIdx++] = floorStart + 3; indices[iIdx++] = floorStart + 2;
+  indices[iIdx++] = floorStart + 0; indices[iIdx++] = floorStart + 1; indices[iIdx++] = floorStart + 3;
 
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
@@ -222,6 +446,7 @@ export function buildHeightfieldGeometry(
   geometry.computeVertexNormals();
   return geometry;
 }
+
 
 /**
  * Sample the upsampled grid at world (x, z) coordinates in meters. With
