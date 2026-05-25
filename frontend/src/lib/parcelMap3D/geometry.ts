@@ -38,6 +38,9 @@ const FLOOR_COLOR = { r: 60, g: 50, b: 40 };
  * Vertex color for a top-surface vertex, dispatched by color mode. Returns
  * {@link gradientColor}'s elevation-delta hue in {@code "elevation"} mode
  * or {@link slopeColor}'s slope-angle hue in {@code "slope"} mode.
+ *
+ * {@code maxDelta} is ignored in slope mode and threaded through to
+ * {@link gradientColor} in elevation mode for auto-scaling.
  */
 function topColorAt(
   uRow: number,
@@ -45,11 +48,12 @@ function topColorAt(
   upsampled: Float32Array,
   slopeGrid: Float32Array,
   parcelMin: number,
+  maxDelta: number,
   mode: "elevation" | "slope",
 ) {
   const idx = uRow * UPSAMPLED_GRID + uCol;
   if (mode === "elevation") {
-    return gradientColor(upsampled[idx] - parcelMin);
+    return gradientColor(upsampled[idx] - parcelMin, maxDelta);
   }
   return slopeColor(slopeGrid[idx]);
 }
@@ -255,10 +259,14 @@ export function computeParcelStats(
  * Wall triangle winding is CCW from outside the region so face normals
  * point outward (south=-Z, north=+Z, west=-X, east=+X). Floor winding is
  * CCW from below so face normal points -Y.
+ *
+ * {@code maxDelta} drives the elevation-mode color auto-scale (typically
+ * {@code bounds.rMax - parcelMin}). Ignored in slope mode.
  */
 export function buildHeightfieldGeometry(
   upsampled: Float32Array,
   parcelMin: number,
+  maxDelta: number,
   floorY: number,
   mode: "elevation" | "slope",
   slopeGrid: Float32Array,
@@ -290,7 +298,7 @@ export function buildHeightfieldGeometry(
       positions[vIdx * 3 + 0] = x;
       positions[vIdx * 3 + 1] = y;
       positions[vIdx * 3 + 2] = z;
-      const c = topColorAt(uRow, uCol, upsampled, slopeGrid, parcelMin, mode);
+      const c = topColorAt(uRow, uCol, upsampled, slopeGrid, parcelMin, maxDelta, mode);
       colors[vIdx * 3 + 0] = c.r / 255;
       colors[vIdx * 3 + 1] = c.g / 255;
       colors[vIdx * 3 + 2] = c.b / 255;
