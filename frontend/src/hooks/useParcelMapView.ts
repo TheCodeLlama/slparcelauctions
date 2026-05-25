@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type ParcelMapView = "2d" | "3d";
 
@@ -23,17 +23,28 @@ function readStoredView(): ParcelMapView {
  * localStorage-backed tab choice for the parcel-map view switcher. Returns
  * the current view and a setter that mirrors writes to localStorage.
  *
- * SSR-safe: the lazy initializer returns DEFAULT_VIEW on the server pass
- * (typeof window === "undefined") and reads from localStorage on the client
- * pass, avoiding a hydration mismatch while still restoring the user's
- * preference without a layout-effect flash. Junk values in storage (anything
- * other than "2d" or "3d") fall back to the default without throwing.
+ * SSR-safe via a two-phase mount: the initial render returns DEFAULT_VIEW on
+ * BOTH the server pass and the client hydration pass, so the markup matches
+ * and React does not warn about a hydration mismatch. After hydration the
+ * useEffect runs, reads the stored value, and re-renders if it differs. A
+ * naive useState lazy initializer would read localStorage during the client
+ * hydration pass and produce different HTML than the server, causing a
+ * mismatch warning whenever a returning visitor has "3d" stored.
  */
 export function useParcelMapView(): [
   ParcelMapView,
   (next: ParcelMapView) => void,
 ] {
-  const [view, setView] = useState<ParcelMapView>(readStoredView);
+  const [view, setView] = useState<ParcelMapView>(DEFAULT_VIEW);
+
+  // Deliberate two-phase mount: see JSDoc above. Lint rules that flag
+  // setState-in-effect do not model SSR hydration, so the suppression is
+  // load-bearing here.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setView(readStoredView());
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const update = useCallback((next: ParcelMapView) => {
     setView(next);
