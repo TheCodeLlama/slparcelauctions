@@ -20,6 +20,9 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>Rasters are immutable per the parcel-scanner spec ("the auction's
  * permanent record"), so callers can cache responses aggressively.
+ *
+ * <p>{@code landUseCellsBase64} is null for any auction whose scan predates
+ * the Land Use feature (i.e. no sibling {@code auction_parcel_land_use} row).
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class ParcelScanReadService {
     private final AuctionRepository auctionRepository;
     private final AuctionParcelLayoutRepository layoutRepository;
     private final AuctionParcelHeightMapRepository heightRepository;
+    private final AuctionParcelLandUseRepository landUseRepository;
 
     @Transactional(readOnly = true)
     public Optional<ParcelScanResponse> findForAuction(UUID publicId) {
@@ -45,6 +49,8 @@ public class ParcelScanReadService {
 
         AuctionParcelLayout layout = layoutOpt.get();
         AuctionParcelHeightMap height = heightOpt.get();
+        // landUse may be absent for pre-feature scans; null-through to the DTO.
+        Optional<AuctionParcelLandUse> landUseOpt = landUseRepository.findByAuctionId(auctionId);
 
         Base64.Encoder b64 = Base64.getEncoder();
         return Optional.of(new ParcelScanResponse(
@@ -54,7 +60,8 @@ public class ParcelScanReadService {
                 b64.encodeToString(height.getCells()),
                 height.getBaseMeters(),
                 height.getStepMeters(),
-                height.getScannedAt()
+                height.getScannedAt(),
+                landUseOpt.map(lu -> b64.encodeToString(lu.getCells())).orElse(null)
         ));
     }
 }
