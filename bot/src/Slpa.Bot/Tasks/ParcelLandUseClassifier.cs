@@ -29,21 +29,29 @@ public static class ParcelLandUseClassifier
     /// <param name="listedLocalId">LocalID of the listed parcel, the one
     /// being auctioned. Cells matching this value are classified as Listed
     /// regardless of the parcel's name or flags.</param>
-    public static byte[] Classify(
+    /// <returns>
+    /// A tuple of the 4096-byte classification array and the count of cells
+    /// whose LocalID was 0 (no parcel data). The caller can log or act on the
+    /// unmapped count without a second traversal of the grid.
+    /// </returns>
+    public static (byte[] Cells, int UnmappedCount) Classify(
         uint[,] parcelGrid,
         IReadOnlyDictionary<uint, ParcelSnapshot> snapshots,
         uint listedLocalId)
     {
         var cells = new byte[4096];
+        int unmappedCount = 0;
         for (int row = 0; row < 64; row++)
         {
             for (int col = 0; col < 64; col++)
             {
+                uint localId = parcelGrid[row, col];
+                if (localId == 0) unmappedCount++;
                 cells[row * 64 + col] = (byte)ClassifyCell(
-                    parcelGrid[row, col], snapshots, listedLocalId);
+                    localId, snapshots, listedLocalId);
             }
         }
-        return cells;
+        return (cells, unmappedCount);
     }
 
     private static ParcelLandUseCategory ClassifyCell(

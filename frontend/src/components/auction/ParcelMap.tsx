@@ -17,7 +17,7 @@ import {
   type Rgb,
 } from "@/lib/parcelMap/colors";
 import { landUseCellColor, landUseCategoryLabel } from "@/lib/parcelMap/landUseColors";
-import { useParcelMap2DColorMode } from "@/hooks/useParcelMap2DColorMode";
+import { useParcelMap2DColorMode, type ParcelMap2DColorMode } from "@/hooks/useParcelMap2DColorMode";
 import { ParcelMap2DColorModeToggle } from "./ParcelMap2DColorModeToggle";
 import { ParcelMapLandUseLegend } from "./ParcelMapLandUseLegend";
 
@@ -210,7 +210,7 @@ function paintCells(
   ctx: CanvasRenderingContext2D,
   decoded: Decoded,
   stats: Stats,
-  mode: "elevation" | "landuse",
+  mode: ParcelMap2DColorMode,
 ) {
   const img = ctx.createImageData(CANVAS_PX, CANVAS_PX);
   const maxDelta = stats.regionMax - stats.parcelMin;
@@ -295,7 +295,7 @@ function cellInfoForEvent(
   e: React.MouseEvent<HTMLCanvasElement>,
   decoded: Decoded,
   figureEl: HTMLElement | null,
-  mode: "elevation" | "landuse",
+  mode: ParcelMap2DColorMode,
 ): HoverState {
   // Row/col math uses the canvas bounding rect (CSS-upscaled display coords).
   const canvasRect = e.currentTarget.getBoundingClientRect();
@@ -320,7 +320,7 @@ function cellInfoForEvent(
 function cellInfoFor(
   cell: { row: number; col: number } | null,
   decoded: Decoded,
-  mode: "elevation" | "landuse" = "elevation",
+  mode: ParcelMap2DColorMode = "elevation",
 ): CellInfo | null {
   if (!cell) return null;
   const elevM = decodeElevationCell(
@@ -335,7 +335,7 @@ function cellInfoFor(
   return { row: cell.row, col: cell.col, elevM, inParcel, landUseValue };
 }
 
-function announcementFor(info: CellInfo | null, mode: "elevation" | "landuse" = "elevation"): string {
+function announcementFor(info: CellInfo | null, mode: ParcelMap2DColorMode = "elevation"): string {
   if (!info) return "";
   const worldX = info.col * 4;
   const worldY = info.row * 4;

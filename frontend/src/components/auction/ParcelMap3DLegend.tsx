@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { MAP_COLORS } from "@/lib/parcelMap/colors";
 
 export interface ParcelMap3DLegendProps {
   mode: "elevation" | "slope";
@@ -34,8 +35,7 @@ export function ParcelMap3DLegend({ mode, maxDelta, className }: ParcelMap3DLege
         // Inline style: gradient is data-driven, not a static theme color.
         // Allowlisted in scripts/verify-no-inline-styles.sh.
         style={{
-          background:
-            "linear-gradient(to right, rgb(34, 197, 94), rgb(239, 68, 68))",
+          background: `linear-gradient(to right, rgb(${MAP_COLORS.green.r}, ${MAP_COLORS.green.g}, ${MAP_COLORS.green.b}), rgb(${MAP_COLORS.red.r}, ${MAP_COLORS.red.g}, ${MAP_COLORS.red.b}))`,
         }}
       />
       <span>{rightLabel}</span>

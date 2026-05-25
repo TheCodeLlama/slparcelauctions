@@ -752,7 +752,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
     ///
     /// SalePrice persists after a sale, so "is this parcel for sale" must be
     /// read from the ForSale flag bit, not inferred from the price.
-    /// ParcelFlags.ForSale is 1<<2 — distinct from ForSaleObjects (1<<7).
+    /// ParcelFlags.ForSale is 1&lt;&lt;2 - distinct from ForSaleObjects (1&lt;&lt;7).
     /// </summary>
     private static ParcelSnapshot ToParcelSnapshot(OpenMetaverse.Parcel p) => new(
         OwnerId: Guid.Parse(p.OwnerID.ToString()),

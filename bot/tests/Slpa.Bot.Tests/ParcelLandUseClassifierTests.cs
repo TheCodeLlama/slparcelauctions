@@ -32,10 +32,21 @@ public sealed class ParcelLandUseClassifierTests
         var grid = EmptyGrid();
         var snapshots = new Dictionary<uint, ParcelSnapshot>();
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result.Should().HaveCount(4096);
         result.Should().AllBeEquivalentTo((byte)ParcelLandUseCategory.Other);
+    }
+
+    [Fact]
+    public void Classify_AllCellsZero_ReturnsFullUnmappedCount()
+    {
+        var grid = EmptyGrid();
+        var snapshots = new Dictionary<uint, ParcelSnapshot>();
+
+        var (_, unmapped) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+
+        unmapped.Should().Be(4096);
     }
 
     [Fact]
@@ -48,7 +59,7 @@ public sealed class ParcelLandUseClassifierTests
             [42] = Snap(name: "Protected Land", forSale: true),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 42);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 42);
 
         result[10 * 64 + 5].Should().Be((byte)ParcelLandUseCategory.Listed);
         result[10 * 64 + 6].Should().Be((byte)ParcelLandUseCategory.Listed);
@@ -65,7 +76,7 @@ public sealed class ParcelLandUseClassifierTests
             [99] = Snap(name: "Abandoned Land"),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Abandoned);
     }
@@ -80,7 +91,7 @@ public sealed class ParcelLandUseClassifierTests
             [100] = Snap(name: "Protected Land"),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Protected);
     }
@@ -95,7 +106,7 @@ public sealed class ParcelLandUseClassifierTests
             [101] = Snap(name: "Protected Land", forSale: true),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Protected);
     }
@@ -110,7 +121,7 @@ public sealed class ParcelLandUseClassifierTests
             [102] = Snap(name: "Abandoned Land", forSale: true),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Abandoned);
     }
@@ -125,7 +136,7 @@ public sealed class ParcelLandUseClassifierTests
             [200] = Snap(name: "Player Parcel", forSale: true),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.ForSale);
     }
@@ -142,7 +153,7 @@ public sealed class ParcelLandUseClassifierTests
             [301] = Snap(name: "PROTECTED LAND - main road"),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Abandoned);
         result[1].Should().Be((byte)ParcelLandUseCategory.Protected);
@@ -155,7 +166,7 @@ public sealed class ParcelLandUseClassifierTests
         grid[5, 5] = 999;
         var snapshots = new Dictionary<uint, ParcelSnapshot>();
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[5 * 64 + 5].Should().Be((byte)ParcelLandUseCategory.Other);
     }
@@ -169,7 +180,7 @@ public sealed class ParcelLandUseClassifierTests
             [0] = Snap(name: "Protected Land"),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result.Should().AllBeEquivalentTo((byte)ParcelLandUseCategory.Other);
     }
@@ -184,7 +195,7 @@ public sealed class ParcelLandUseClassifierTests
             [400] = Snap(name: string.Empty, forSale: false),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 0);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Other);
     }
@@ -207,7 +218,7 @@ public sealed class ParcelLandUseClassifierTests
             [5] = Snap(name: "Player parcel"),
         };
 
-        var result = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 1);
+        var (result, _) = ParcelLandUseClassifier.Classify(grid, snapshots, listedLocalId: 1);
 
         result[0].Should().Be((byte)ParcelLandUseCategory.Listed);
         result[1].Should().Be((byte)ParcelLandUseCategory.Protected);

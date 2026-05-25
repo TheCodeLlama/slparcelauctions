@@ -94,17 +94,13 @@ public sealed class ScanParcelHandler
 
         // Step 3b: Classify per-cell land use from the same parcel grid + the
         // sim's parcel snapshot cache. Mirrors the layout pass's partial-download
-        // tolerance: missing data classifies as Other.
+        // tolerance: missing data classifies as Other. The unmapped count comes
+        // back from Classify() so we avoid a second traversal of the grid.
         var snapshots = _session.GetAllSimParcelSnapshots();
-        var landUseCells = ParcelLandUseClassifier.Classify(
+        var (landUseCells, unmappedCells) = ParcelLandUseClassifier.Classify(
             parcelGrid, snapshots, ourLocalId);
 
-        // Diagnostic: count of cells with no parcel data (LocalID 0). High values
-        // suggest the RequestAllSimParcels download was partial.
-        int unmappedCells = 0;
-        for (int row = 0; row < 64; row++)
-            for (int col = 0; col < 64; col++)
-                if (parcelGrid[row, col] == 0) unmappedCells++;
+        // Diagnostic: high unmapped counts suggest a partial sim.Parcels download.
         if (unmappedCells > 0)
         {
             _log.LogWarning(
