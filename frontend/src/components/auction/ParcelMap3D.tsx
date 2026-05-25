@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useParcelScan } from "@/hooks/useParcelScan";
 import { decodeBase64ToBytes } from "@/lib/parcelMap/encoding";
 import {
+  UPSAMPLED_GRID,
   bicubicUpsample,
   buildHeightfieldGeometry,
   buildPerimeterPoints,
@@ -93,9 +94,17 @@ export default function ParcelMap3D({
   }, [upsampledGrid]);
 
   const meshGeometry = useMemo(() => {
-    if (!upsampledGrid || !stats) return null;
-    return buildHeightfieldGeometry(upsampledGrid, stats.parcelMin);
-  }, [upsampledGrid, stats]);
+    if (!upsampledGrid || !stats || !bounds) return null;
+    // Transitional placeholder. Task 5 wires the real slopeGrid memo and
+    // colorMode hook, replacing the empty array + hardcoded "elevation".
+    return buildHeightfieldGeometry(
+      upsampledGrid,
+      stats.parcelMin,
+      bounds.rMin - 8,
+      "elevation",
+      new Float32Array(UPSAMPLED_GRID * UPSAMPLED_GRID),
+    );
+  }, [upsampledGrid, stats, bounds]);
 
   // Dispose GPU-side BufferGeometry when it changes or the component unmounts
   // to prevent memory leaks.
