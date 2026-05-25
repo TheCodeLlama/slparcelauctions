@@ -60,6 +60,7 @@ allowlist=(
   "src/components/listing/PhotoUploader.tsx"
   "src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx"
   "src/components/auction/ParcelMap.tsx"
+  "src/components/auction/ParcelMap3DLegend.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.
