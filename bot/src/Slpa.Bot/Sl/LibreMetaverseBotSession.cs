@@ -330,12 +330,6 @@ public sealed class LibreMetaverseBotSession : IBotSession
         EventHandler<TeleportEventArgs>? handler = null;
         handler = (_, e) =>
         {
-            // Diagnostic: log every TeleportProgress event we observe. Before
-            // this was added, intermediate statuses (Start, Progress, Resolving,
-            // etc.) were silently discarded, making timeout failures opaque.
-            _log.LogInformation(
-                "TeleportProgress: status={Status} message={Message} target={Region}",
-                e.Status, e.Message ?? "<null>", regionName);
             if (e.Status is TeleportStatus.Finished
                 or TeleportStatus.Failed
                 or TeleportStatus.Cancelled)
@@ -362,24 +356,10 @@ public sealed class LibreMetaverseBotSession : IBotSession
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
         var registration = timeoutCts.Token.Register(() =>
-        {
-            // Diagnostic: explicit warn at the moment the timeout fires, so
-            // log timelines distinguish "timeout fired with zero progress
-            // events" from "timeout fired despite progress events streaming".
-            _log.LogWarning(
-                "Teleport timeout fired (target={Region}, currentSim={Sim})",
-                regionName, _client.Network.CurrentSim?.Name ?? "<null>");
-            tcs.TrySetResult(TeleportResult.Fail(TeleportFailureKind.Timeout));
-        });
+            tcs.TrySetResult(TeleportResult.Fail(TeleportFailureKind.Timeout)));
         try
         {
             _seatedBelief = false; // a real teleport stands the avatar up
-            // Diagnostic: log the source sim + target before issuing the call,
-            // so we can correlate the LibreMetaverse "Requesting teleport to
-            // region handle ..." line with our side's intent.
-            _log.LogInformation(
-                "Issuing teleport: from={From} to={To} pos=({X},{Y},{Z})",
-                _client.Network.CurrentSim?.Name ?? "<null>", regionName, x, y, z);
             _client.Self.Teleport(regionName, new Vector3((float)x, (float)y, (float)z));
             return await tcs.Task.ConfigureAwait(false);
         }
