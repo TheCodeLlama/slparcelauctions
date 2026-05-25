@@ -106,6 +106,7 @@ export default function ParcelMap3D({
     return buildHeightfieldGeometry(
       upsampledGrid,
       stats.parcelMin,
+      bounds.rMax - stats.parcelMin,
       bounds.rMin - 8,
       colorMode,
       slopeGrid,

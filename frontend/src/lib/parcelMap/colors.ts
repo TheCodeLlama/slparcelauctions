@@ -3,11 +3,13 @@
  *
  * Two color helpers feed the heatmap rendering:
  *
- *   gradientColor(deltaMeters)
- *     Elevation above the parcel's lowest cell. 2-stop lerp:
- *       delta <= 0   -> green
- *       delta >= 8m  -> red (un-flattenable spread)
+ *   gradientColor(deltaMeters, maxMeters)
+ *     Elevation above the parcel's lowest cell, scaled to the visible
+ *     scene's full relief. 2-stop lerp:
+ *       delta <= 0         -> green (at or below the parcel's low point)
+ *       delta >= maxMeters -> red (at or above the region's high point)
  *       in between, smooth linear interpolation through olive/khaki tones.
+ *     A flat scene (maxMeters <= 0) is entirely green.
  *
  *   slopeColor(slopeRad)
  *     Local terrain slope in radians. 2-stop lerp:
@@ -36,13 +38,18 @@ export const MAP_COLORS = {
 } as const;
 
 const SLOPE_RED_RAD = Math.PI / 4; // 45 deg saturation point
-const ELEVATION_RED_M = 8; // 8m above parcel min saturates to red
 
-/** Per-cell color from an elevation delta (cell elevation - parcel min). */
-export function gradientColor(deltaMeters: number): Rgb {
-  if (deltaMeters <= 0) return { ...MAP_COLORS.green };
-  if (deltaMeters >= ELEVATION_RED_M) return { ...MAP_COLORS.red };
-  const t = deltaMeters / ELEVATION_RED_M;
+/**
+ * Per-cell color from an elevation delta (cell elevation - parcel min) and
+ * the max delta in the visible scene (region max - parcel min). Auto-scaling
+ * to the visible relief keeps the gradient soft on hilly regions and avoids
+ * the previous hardcoded 8m saturation that produced near-step transitions
+ * on cliffs.
+ */
+export function gradientColor(deltaMeters: number, maxMeters: number): Rgb {
+  if (deltaMeters <= 0 || maxMeters <= 0) return { ...MAP_COLORS.green };
+  if (deltaMeters >= maxMeters) return { ...MAP_COLORS.red };
+  const t = deltaMeters / maxMeters;
   return lerp(MAP_COLORS.green, MAP_COLORS.red, t);
 }
 

@@ -1,44 +1,66 @@
 import { describe, it, expect } from "vitest";
 import { gradientColor, slopeColor, dimOutside, MAP_COLORS } from "./colors";
 
-describe("gradientColor (2-stop green->red)", () => {
-  it("returns solid green when delta <= 0", () => {
-    expect(gradientColor(-2)).toEqual(MAP_COLORS.green);
-    expect(gradientColor(0)).toEqual(MAP_COLORS.green);
+describe("gradientColor (auto-scaled 2-stop green->red)", () => {
+  it("returns solid green when delta <= 0 regardless of max", () => {
+    expect(gradientColor(-2, 30)).toEqual(MAP_COLORS.green);
+    expect(gradientColor(0, 30)).toEqual(MAP_COLORS.green);
   });
 
-  it("returns solid red when delta >= 8", () => {
-    expect(gradientColor(8)).toEqual(MAP_COLORS.red);
-    expect(gradientColor(12)).toEqual(MAP_COLORS.red);
+  it("returns solid red when delta >= max", () => {
+    expect(gradientColor(30, 30)).toEqual(MAP_COLORS.red);
+    expect(gradientColor(50, 30)).toEqual(MAP_COLORS.red);
   });
 
-  it("lerps green->red linearly at the midpoint (delta = 4 m)", () => {
+  it("returns solid green when max <= 0 (flat scene; no relief)", () => {
+    expect(gradientColor(5, 0)).toEqual(MAP_COLORS.green);
+    expect(gradientColor(5, -2)).toEqual(MAP_COLORS.green);
+  });
+
+  it("lerps green->red linearly at the midpoint (delta = max / 2)", () => {
     const g = MAP_COLORS.green;
     const r = MAP_COLORS.red;
-    const mid = gradientColor(4);
+    const mid = gradientColor(15, 30);
     expect(mid.r).toBeCloseTo((g.r + r.r) / 2, 0);
     expect(mid.g).toBeCloseTo((g.g + r.g) / 2, 0);
     expect(mid.b).toBeCloseTo((g.b + r.b) / 2, 0);
   });
 
-  it("lerps green->red at delta = 2 m (25% of the way)", () => {
+  it("lerps green->red at 25% (delta = max / 4)", () => {
     const g = MAP_COLORS.green;
     const r = MAP_COLORS.red;
     const t = 0.25;
-    const c = gradientColor(2);
+    const c = gradientColor(8, 32);
     expect(c.r).toBeCloseTo(g.r + (r.r - g.r) * t, 0);
     expect(c.g).toBeCloseTo(g.g + (r.g - g.g) * t, 0);
     expect(c.b).toBeCloseTo(g.b + (r.b - g.b) * t, 0);
   });
 
-  it("lerps green->red at delta = 6 m (75% of the way)", () => {
+  it("lerps green->red at 75% (delta = 3 * max / 4)", () => {
     const g = MAP_COLORS.green;
     const r = MAP_COLORS.red;
     const t = 0.75;
-    const c = gradientColor(6);
+    const c = gradientColor(24, 32);
     expect(c.r).toBeCloseTo(g.r + (r.r - g.r) * t, 0);
     expect(c.g).toBeCloseTo(g.g + (r.g - g.g) * t, 0);
     expect(c.b).toBeCloseTo(g.b + (r.b - g.b) * t, 0);
+  });
+
+  it("scales fully across a small max (region range = 4 m)", () => {
+    // At max = 4m, delta=2m is the midpoint -- olive tones, not a sharp band.
+    const g = MAP_COLORS.green;
+    const r = MAP_COLORS.red;
+    const c = gradientColor(2, 4);
+    expect(c.r).toBeCloseTo((g.r + r.r) / 2, 0);
+  });
+
+  it("scales fully across a large max (region range = 60 m)", () => {
+    // At max = 60m, delta=15m is 25% of the way -- still mostly green.
+    const g = MAP_COLORS.green;
+    const r = MAP_COLORS.red;
+    const c = gradientColor(15, 60);
+    const t = 0.25;
+    expect(c.r).toBeCloseTo(g.r + (r.r - g.r) * t, 0);
   });
 });
 
