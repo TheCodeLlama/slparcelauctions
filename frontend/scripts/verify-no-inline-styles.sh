@@ -53,14 +53,6 @@ fi
 #   Tailwind classes. Same shape as the AdminRealtyGroupRowActionMenu
 #   exception above. See spec
 #   docs/superpowers/specs/2026-05-24-parcel-map-frontend-design.md §4.7.
-#
-# - src/components/auction/ParcelMap3DLegend.tsx: gradient bar background;
-#   data-driven not a theme color. See spec
-#   docs/superpowers/specs/2026-05-25-parcel-map-land-use-design.md.
-#
-# - src/components/auction/ParcelMapLandUseLegend.tsx: per-category swatch
-#   background; data palette in landUseColors.ts. See spec
-#   docs/superpowers/specs/2026-05-25-parcel-map-land-use-design.md.
 allowlist=(
   "src/components/marketing/HeroFeaturedStack.tsx"
   "src/components/reviews/RatingSummary.tsx"
@@ -68,8 +60,6 @@ allowlist=(
   "src/components/listing/PhotoUploader.tsx"
   "src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx"
   "src/components/auction/ParcelMap.tsx"
-  "src/components/auction/ParcelMap3DLegend.tsx"
-  "src/components/auction/ParcelMapLandUseLegend.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.

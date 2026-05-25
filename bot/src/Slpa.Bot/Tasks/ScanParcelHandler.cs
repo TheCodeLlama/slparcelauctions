@@ -92,23 +92,6 @@ public sealed class ScanParcelHandler
             }
         }
 
-        // Step 3b: Classify per-cell land use from the same parcel grid + the
-        // sim's parcel snapshot cache. Mirrors the layout pass's partial-download
-        // tolerance: missing data classifies as Other. The unmapped count comes
-        // back from Classify() so we avoid a second traversal of the grid.
-        var snapshots = _session.GetAllSimParcelSnapshots();
-        var (landUseCells, unmappedCells) = ParcelLandUseClassifier.Classify(
-            parcelGrid, snapshots, ourLocalId);
-
-        // Diagnostic: high unmapped counts suggest a partial sim.Parcels download.
-        if (unmappedCells > 0)
-        {
-            _log.LogWarning(
-                "SCAN_PARCEL {Id}: {Unmapped}/4096 cells had no parcel LocalID; " +
-                "classified as Other (partial sim.Parcels download)",
-                task.Id, unmappedCells);
-        }
-
         // Step 4: Wait for terrain patches to stream in, then sample heights.
         var patchCount = await _session.WaitForRegionTerrainAsync(ct).ConfigureAwait(false);
         _log.LogInformation("SCAN_PARCEL {Id}: terrain patches received = {Count}/256",
@@ -177,8 +160,7 @@ public sealed class ScanParcelHandler
             LayoutCellsBase64: Convert.ToBase64String(layoutCells),
             HeightBaseMeters: baseM,
             HeightStepMeters: step,
-            HeightCellsBase64: Convert.ToBase64String(heightCells),
-            LandUseCellsBase64: Convert.ToBase64String(landUseCells));
+            HeightCellsBase64: Convert.ToBase64String(heightCells));
 
         HttpResponseMessage resp;
         try

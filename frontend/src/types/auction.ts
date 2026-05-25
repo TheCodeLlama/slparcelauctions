@@ -558,10 +558,4 @@ export interface ParcelScanResponse {
   baseMeters: number;
   stepMeters: number;
   scannedAt: string;
-  /**
-   * Per-cell land-use category bytes (4096 bytes base64-encoded, values 0..4
-   * per LAND_USE_CATEGORY). Null for scans captured before the Land Use
-   * feature shipped; the Land Use toggle option is disabled in that case.
-   */
-  landUseCellsBase64: string | null;
 }

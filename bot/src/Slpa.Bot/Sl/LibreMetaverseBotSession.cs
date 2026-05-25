@@ -454,16 +454,32 @@ public sealed class LibreMetaverseBotSession : IBotSession
             return null;
         }
 
-        var snapshot = ToParcelSnapshot(parcel);
+        // SalePrice persists after a sale, so "is this parcel for sale" must
+        // be read from the ForSale flag bit, not inferred from the price.
+        // ParcelFlags.ForSale is 1<<2 — distinct from ForSaleObjects (1<<7).
+        bool forSale = parcel.Flags.HasFlag(OpenMetaverse.ParcelFlags.ForSale);
 
         _log.LogInformation(
             "ReadParcel resolved LocalID {LocalId} at ({X},{Y}) in {Sim}: " +
             "name='{Name}' owner={Owner} authBuyer={AuthBuyer} salePrice={Price} " +
             "forSale={ForSale}",
             localId, x, y, sim.Name, parcel.Name, parcel.OwnerID,
-            parcel.AuthBuyerID, parcel.SalePrice, snapshot.ForSale);
+            parcel.AuthBuyerID, parcel.SalePrice, forSale);
 
-        return snapshot;
+        return new ParcelSnapshot(
+            OwnerId: Guid.Parse(parcel.OwnerID.ToString()),
+            GroupId: Guid.Parse(parcel.GroupID.ToString()),
+            IsGroupOwned: parcel.IsGroupOwned,
+            AuthBuyerId: Guid.Parse(parcel.AuthBuyerID.ToString()),
+            SalePrice: parcel.SalePrice,
+            ForSale: forSale,
+            Name: parcel.Name ?? string.Empty,
+            Description: parcel.Desc ?? string.Empty,
+            AreaSqm: parcel.Area,
+            MaxPrims: parcel.MaxPrims,
+            Category: (int)parcel.Category,
+            SnapshotId: Guid.Parse(parcel.SnapshotID.ToString()),
+            Flags: (uint)parcel.Flags);
     }
 
     public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
@@ -569,24 +585,6 @@ public sealed class LibreMetaverseBotSession : IBotSession
             }
         }
         return grid;
-    }
-
-    /// <inheritdoc/>
-    public IReadOnlyDictionary<uint, ParcelSnapshot> GetAllSimParcelSnapshots()
-    {
-        var sim = _client.Network.CurrentSim;
-        var result = new Dictionary<uint, ParcelSnapshot>();
-        if (sim is null) return result;
-
-        // sim.Parcels is LibreMetaverse's thread-safe InternalDictionary<int, Parcel>;
-        // Copy() returns a regular Dictionary snapshot we can iterate without
-        // holding the lock. The Parcel objects are immutable per-snapshot in
-        // practice so reading fields here is safe.
-        foreach (var kvp in sim.Parcels.Copy())
-        {
-            result[(uint)kvp.Value.LocalID] = ToParcelSnapshot(kvp.Value);
-        }
-        return result;
     }
 
     /// <inheritdoc/>
@@ -743,29 +741,4 @@ public sealed class LibreMetaverseBotSession : IBotSession
         p.Options = Array.Empty<string>();
         return p;
     }
-
-    /// <summary>
-    /// Constructs a <see cref="ParcelSnapshot"/> from a LibreMetaverse
-    /// <c>Parcel</c> object. Shared by <see cref="ReadParcelAsync"/> and
-    /// <see cref="GetAllSimParcelSnapshots"/> to avoid duplication and ensure
-    /// consistent handling of the ForSale flag bit.
-    ///
-    /// SalePrice persists after a sale, so "is this parcel for sale" must be
-    /// read from the ForSale flag bit, not inferred from the price.
-    /// ParcelFlags.ForSale is 1&lt;&lt;2 - distinct from ForSaleObjects (1&lt;&lt;7).
-    /// </summary>
-    private static ParcelSnapshot ToParcelSnapshot(OpenMetaverse.Parcel p) => new(
-        OwnerId: Guid.Parse(p.OwnerID.ToString()),
-        GroupId: Guid.Parse(p.GroupID.ToString()),
-        IsGroupOwned: p.IsGroupOwned,
-        AuthBuyerId: Guid.Parse(p.AuthBuyerID.ToString()),
-        SalePrice: p.SalePrice,
-        ForSale: p.Flags.HasFlag(OpenMetaverse.ParcelFlags.ForSale),
-        Name: p.Name ?? string.Empty,
-        Description: p.Desc ?? string.Empty,
-        AreaSqm: p.Area,
-        MaxPrims: p.MaxPrims,
-        Category: (int)p.Category,
-        SnapshotId: Guid.Parse(p.SnapshotID.ToString()),
-        Flags: (uint)p.Flags);
 }

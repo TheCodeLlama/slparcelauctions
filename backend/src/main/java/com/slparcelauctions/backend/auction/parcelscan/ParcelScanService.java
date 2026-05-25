@@ -31,7 +31,6 @@ public class ParcelScanService {
 
     private final AuctionParcelLayoutRepository layoutRepo;
     private final AuctionParcelHeightMapRepository heightRepo;
-    private final AuctionParcelLandUseRepository landUseRepo;
     private final BotTaskRepository botTaskRepo;
     private final BotTaskService botTaskService;
 
@@ -69,17 +68,11 @@ public class ParcelScanService {
 
         byte[] layoutCells;
         byte[] heightCells;
-        byte[] landUseCells;
         try {
             layoutCells = Base64.getDecoder().decode(req.layoutCellsBase64());
             heightCells = Base64.getDecoder().decode(req.heightCellsBase64());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid base64", ex);
-        }
-        try {
-            landUseCells = Base64.getDecoder().decode(req.landUseCellsBase64());
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid base64 (landUse)", ex);
         }
 
         int cells = req.gridSize() * req.gridSize();
@@ -96,17 +89,6 @@ public class ParcelScanService {
         }
         if (req.heightStepMeters() <= 0f || !Float.isFinite(req.heightStepMeters())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "heightStepMeters must be > 0 and finite");
-        }
-        if (landUseCells.length != cells) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "landUse length " + landUseCells.length + " != " + cells);
-        }
-        for (int i = 0; i < landUseCells.length; i++) {
-            int v = landUseCells[i] & 0xFF;
-            if (v > 4) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "landUse value " + v + " at index " + i + " is out of range [0..4]");
-            }
         }
 
         Auction auction = task.getAuction();
@@ -128,14 +110,6 @@ public class ParcelScanService {
                 .baseMeters(req.heightBaseMeters())
                 .stepMeters(req.heightStepMeters())
                 .cells(heightCells)
-                .scannedAt(now)
-                .build());
-
-        landUseRepo.save(AuctionParcelLandUse.builder()
-                .auction(auction)
-                .gridSize(req.gridSize())
-                .cellSizeMeters(req.cellSizeMeters())
-                .cells(landUseCells)
                 .scannedAt(now)
                 .build());
 
