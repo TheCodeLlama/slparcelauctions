@@ -1,4 +1,5 @@
 import {
+  BufferAttribute,
   BufferGeometry,
   Float32BufferAttribute,
 } from "three";
@@ -214,7 +215,7 @@ export function buildHeightfieldGeometry(
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
   geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  geometry.setIndex(Array.from(indices));
+  geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.computeVertexNormals();
   return geometry;
 }
