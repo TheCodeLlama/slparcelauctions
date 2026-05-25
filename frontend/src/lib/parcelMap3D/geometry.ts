@@ -206,9 +206,12 @@ export function buildHeightfieldGeometry(
       const se = sw + 1;
       const nw = sw + UPSAMPLED_GRID;
       const ne = nw + 1;
-      // Two CCW triangles seen from +Y (top-down).
-      indices[iIdx++] = sw; indices[iIdx++] = se; indices[iIdx++] = ne;
-      indices[iIdx++] = sw; indices[iIdx++] = ne; indices[iIdx++] = nw;
+      // Two CCW triangles when viewed from +Y so face normals point up.
+      // Quick check: (ne - sw) cross (se - sw) = (2,0,2) cross (2,0,0)
+      // = (0, +4, 0) for a unit quad. +Y is up. computeVertexNormals
+      // averages face normals so vertex normals follow.
+      indices[iIdx++] = sw; indices[iIdx++] = ne; indices[iIdx++] = se;
+      indices[iIdx++] = sw; indices[iIdx++] = nw; indices[iIdx++] = ne;
     }
   }
 
