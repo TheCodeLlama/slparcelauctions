@@ -140,7 +140,6 @@ class BotTaskControllerScanResultTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(badLayout),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         mvc.perform(post("/api/v1/bot/tasks/" + task.getId() + "/scan-result")
@@ -160,8 +159,7 @@ class BotTaskControllerScanResultTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(badHeight),
-                Base64.getEncoder().encodeToString(new byte[4096]));
+                Base64.getEncoder().encodeToString(badHeight));
 
         mvc.perform(post("/api/v1/bot/tasks/" + task.getId() + "/scan-result")
                         .header("Authorization", "Bearer " + DEV_BOT_SECRET)
@@ -179,7 +177,6 @@ class BotTaskControllerScanResultTest {
                 64, 4,
                 "!!!not-base64",
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         mvc.perform(post("/api/v1/bot/tasks/" + task.getId() + "/scan-result")
@@ -200,7 +197,6 @@ class BotTaskControllerScanResultTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 22.0f, 0f,
-                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         mvc.perform(post("/api/v1/bot/tasks/" + task.getId() + "/scan-result")
@@ -229,8 +225,7 @@ class BotTaskControllerScanResultTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(layoutCells),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(heightCells),
-                Base64.getEncoder().encodeToString(new byte[4096]));
+                Base64.getEncoder().encodeToString(heightCells));
     }
 
     private User savedUser(String label) {

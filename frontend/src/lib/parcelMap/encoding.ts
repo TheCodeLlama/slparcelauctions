@@ -52,15 +52,3 @@ export function decodeElevationCell(
 ): number {
   return baseMeters + (heightCells[row * 64 + col] & 0xff) * stepMeters;
 }
-
-/**
- * Read a single land-use category byte at (row, col) from the 4096-byte
- * decoded payload. Row-major SW-first, same indexing as the height map.
- */
-export function decodeLandUseCell(
-  landUseCells: Uint8Array,
-  row: number,
-  col: number,
-): number {
-  return landUseCells[row * 64 + col] ?? 0;
-}

@@ -3,8 +3,6 @@ namespace Slpa.Bot.Backend.Models;
 /// <summary>
 /// Body for POST /api/v1/bot/tasks/{taskId}/scan-result.
 /// All Base64 fields are standard (non-URL-safe) Base64 with no line breaks.
-/// LandUseCellsBase64 decodes to 4096 bytes, one byte per cell, values 0..4
-/// (see <see cref="Slpa.Bot.Tasks.ParcelLandUseCategory"/>).
 /// </summary>
 public sealed record ScanResultRequest(
     int GridSize,
@@ -12,5 +10,4 @@ public sealed record ScanResultRequest(
     string LayoutCellsBase64,
     float HeightBaseMeters,
     float HeightStepMeters,
-    string HeightCellsBase64,
-    string LandUseCellsBase64);
+    string HeightCellsBase64);

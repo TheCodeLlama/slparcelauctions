@@ -11,10 +11,9 @@ import jakarta.validation.constraints.Positive;
  *
  * <p>{@code gridSize} and {@code cellSizeMeters} are constrained to the
  * current scan resolution (64 / 4). Raising the cap is a schema-versioned
- * change. {@code layoutCellsBase64} decodes to {@code gridSize^2 / 8} bytes,
- * {@code heightCellsBase64} decodes to {@code gridSize^2} bytes, and
- * {@code landUseCellsBase64} decodes to {@code gridSize^2} bytes (one byte
- * per cell, values 0..4). The service validates lengths after decoding.
+ * change. {@code layoutCellsBase64} decodes to {@code gridSize^2 / 8} bytes
+ * and {@code heightCellsBase64} decodes to {@code gridSize^2} bytes; the
+ * service validates this after decoding.
  */
 public record BotScanResultRequest(
         @NotNull @Min(64) @Max(64) Integer gridSize,
@@ -22,6 +21,5 @@ public record BotScanResultRequest(
         @NotBlank String layoutCellsBase64,
         @NotNull Float heightBaseMeters,
         @NotNull @Positive Float heightStepMeters,
-        @NotBlank String heightCellsBase64,
-        @NotBlank String landUseCellsBase64) {
+        @NotBlank String heightCellsBase64) {
 }
