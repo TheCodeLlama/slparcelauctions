@@ -5,7 +5,7 @@ import { type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
 import { type ParcelMap3DColorMode } from "@/hooks/useParcelMapColorMode";
 
-interface Props {
+export interface ParcelMap3DColorModeToggleProps {
   mode: ParcelMap3DColorMode;
   onChange: (next: ParcelMap3DColorMode) => void;
   className?: string;
@@ -24,7 +24,7 @@ const MODES: ReadonlyArray<{ value: ParcelMap3DColorMode; label: string }> = [
  *
  * Spec: docs/superpowers/specs/2026-05-24-parcel-map-3d-slope-and-solid-design.md
  */
-export function ParcelMap3DColorModeToggle({ mode, onChange, className }: Props) {
+export function ParcelMap3DColorModeToggle({ mode, onChange, className }: ParcelMap3DColorModeToggleProps) {
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
@@ -60,7 +60,8 @@ export function ParcelMap3DColorModeToggle({ mode, onChange, className }: Props)
             onClick={() => onChange(m.value)}
             onKeyDown={handleKeyDown}
             className={cn(
-              "px-2 py-1 text-xs font-medium transition-colors",
+              "px-2 py-1 text-xs font-medium transition-colors rounded",
+              "focus:outline-none focus-visible:ring-1 focus-visible:ring-brand",
               selected
                 ? "text-brand"
                 : "text-fg-muted hover:text-fg",

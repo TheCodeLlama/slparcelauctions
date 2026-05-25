@@ -44,6 +44,7 @@ describe("ParcelMap3DColorModeToggle", () => {
     elev.focus();
     await user.keyboard("{ArrowRight}");
     expect(onChange).toHaveBeenCalledWith("slope");
+    expect(screen.getByRole("radio", { name: "Slope" })).toHaveFocus();
   });
 
   it("Arrow-Left from Slope wraps focus + selection back to Elevation", async () => {
@@ -54,6 +55,7 @@ describe("ParcelMap3DColorModeToggle", () => {
     slope.focus();
     await user.keyboard("{ArrowLeft}");
     expect(onChange).toHaveBeenCalledWith("elevation");
+    expect(screen.getByRole("radio", { name: "Elevation" })).toHaveFocus();
   });
 
   it("the active radio has tabIndex 0 and the inactive radio has tabIndex -1 (roving)", () => {
