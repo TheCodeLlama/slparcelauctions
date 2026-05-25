@@ -108,4 +108,14 @@ describe("ParcelMap3D", () => {
     const props = JSON.parse(cam.getAttribute("data-props") ?? "{}");
     expect(props.fov).toBe(50);
   });
+
+  it("wrapping div has the correct aria-label for the 3D scene", async () => {
+    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
+    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
+    wrap(<ParcelMap3D publicId={publicId} />);
+    await screen.findByTestId("r3f-canvas");
+    expect(
+      screen.getByRole("img", { name: /Interactive 3D region and parcel elevation map/ }),
+    ).toBeInTheDocument();
+  });
 });

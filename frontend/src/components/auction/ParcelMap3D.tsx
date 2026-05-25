@@ -48,6 +48,7 @@ export default function ParcelMap3D({
   const webglOk = useMemo(() => isWebGLAvailable(), []);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  // Read once at mount; spec opts out of subscribing to mq.change events (page reloads if the visitor changes their OS preference).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -135,6 +136,8 @@ export default function ParcelMap3D({
 
   return (
     <div
+      role="img"
+      aria-label="Interactive 3D region and parcel elevation map"
       className={cn(
         "aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle",
         className,
