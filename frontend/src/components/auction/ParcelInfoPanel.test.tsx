@@ -230,7 +230,9 @@ describe("ParcelInfoPanel", () => {
     expect(screen.getByText("Visit in Second Life")).toBeInTheDocument();
   });
 
-  it("mounts ParcelMap with the auction's publicId", () => {
+  it("mounts ParcelMapTabs with the auction's publicId", () => {
+    // Default view is "2d", so the 2D ParcelMap is the child rendered.
+    // It calls useParcelScan with the auction's publicId.
     const useParcelScanSpy = vi
       .spyOn(parcelScanHook, "useParcelScan")
       .mockReturnValue({
@@ -244,5 +246,7 @@ describe("ParcelInfoPanel", () => {
     expect(useParcelScanSpy).toHaveBeenCalledWith(
       "00000000-0000-0000-0000-000000000007",
     );
+    // The tab UI is rendered.
+    expect(screen.getByRole("tablist", { name: "Parcel map view" })).toBeInTheDocument();
   });
 });

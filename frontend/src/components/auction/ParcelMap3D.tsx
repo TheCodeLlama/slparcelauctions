@@ -46,14 +46,15 @@ export default function ParcelMap3D({
 }: Props) {
   const { data, isPending, isError } = useParcelScan(publicId);
   const webglOk = useMemo(() => isWebGLAvailable(), []);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Read once at mount; spec opts out of subscribing to mq.change events (page reloads if the visitor changes their OS preference).
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
-  }, []);
+  // Lazy initializer: safe because this component is only rendered client-side
+  // (imported via next/dynamic({ ssr: false })). The spec opts out of
+  // subscribing to mq.change events; a page reload reflects any OS preference
+  // change.
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
 
   useEffect(() => {
     if (!webglOk) onWebGLUnavailable?.();

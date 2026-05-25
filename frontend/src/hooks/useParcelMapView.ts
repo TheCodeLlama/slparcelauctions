@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export type ParcelMapView = "2d" | "3d";
 
@@ -23,20 +23,17 @@ function readStoredView(): ParcelMapView {
  * localStorage-backed tab choice for the parcel-map view switcher. Returns
  * the current view and a setter that mirrors writes to localStorage.
  *
- * SSR-safe: the initial render returns the default ("2d"); the stored value
- * is read inside useEffect on mount so the server pass never touches window.
- * Junk values in storage (anything other than "2d" or "3d") fall back to the
- * default without throwing.
+ * SSR-safe: the lazy initializer returns DEFAULT_VIEW on the server pass
+ * (typeof window === "undefined") and reads from localStorage on the client
+ * pass, avoiding a hydration mismatch while still restoring the user's
+ * preference without a layout-effect flash. Junk values in storage (anything
+ * other than "2d" or "3d") fall back to the default without throwing.
  */
 export function useParcelMapView(): [
   ParcelMapView,
   (next: ParcelMapView) => void,
 ] {
-  const [view, setView] = useState<ParcelMapView>(DEFAULT_VIEW);
-
-  useEffect(() => {
-    setView(readStoredView());
-  }, []);
+  const [view, setView] = useState<ParcelMapView>(readStoredView);
 
   const update = useCallback((next: ParcelMapView) => {
     setView(next);
