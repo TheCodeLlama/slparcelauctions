@@ -41,7 +41,8 @@ function heightsAll(value: number): Uint8Array {
 function flatScene() {
   const upsampled = bicubicUpsample(decodeElevationGrid(heightsAll(0), 22, 0.5));
   const slope = computeSlopeGrid(upsampled);
-  return { upsampled, slope, parcelMin: 22, floorY: 14 };
+  // Flat scene -> maxDelta = 0 -> gradientColor returns green for any delta.
+  return { upsampled, slope, parcelMin: 22, maxDelta: 0, floorY: 14 };
 }
 
 describe("decodeElevationGrid", () => {
@@ -223,9 +224,9 @@ describe("isWebGLAvailable", () => {
 
 describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   it("produces TOTAL_VERTS vertices and TOTAL_INDICES indices", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     expect(geom.getAttribute("position").count).toBe(TOTAL_VERTS);
     expect(geom.getAttribute("color").count).toBe(TOTAL_VERTS);
@@ -233,9 +234,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("vertex 0 (SW corner of top mesh) sits at world (0, baseMeters, 0)", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const pos = geom.getAttribute("position");
     expect(pos.getX(0)).toBe(0);
@@ -244,9 +245,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("colors top vertex 0 with green-500 when elevation equals parcelMin", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const colors = geom.getAttribute("color");
     expect(colors.getX(0)).toBeCloseTo(34 / 255);
@@ -263,7 +264,8 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
     const stats = computeParcelStats(layoutWith([[10, 10]]), raw)!;
     const bounds = computeRegionBounds(upsampled);
     const geom = buildHeightfieldGeometry(
-      upsampled, stats.parcelMin, bounds.rMin - 8, "elevation", slope,
+      upsampled, stats.parcelMin, bounds.rMax - stats.parcelMin,
+      bounds.rMin - 8, "elevation", slope,
     );
     const normals = geom.getAttribute("normal");
     let sumY = 0;
@@ -272,9 +274,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("each wall's face normal points outward from region center", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const normals = geom.getAttribute("normal");
     const PER_WALL = 2 * UPSAMPLED_GRID;
@@ -298,9 +300,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("floor face normal points -Y (downward)", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const normals = geom.getAttribute("normal");
     const floorStart = TOP_VERTS + WALL_VERTS;
@@ -310,9 +312,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("wall vertex color = top vertex color at same X/Z, multiplied by 0.55 (top + bottom edge match)", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const colors = geom.getAttribute("color");
     const topR = colors.getX(0);
@@ -328,9 +330,9 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
   });
 
   it("floor vertex color is the fixed earth tone rgb(60, 50, 40)", () => {
-    const { upsampled, slope, parcelMin, floorY } = flatScene();
+    const { upsampled, slope, parcelMin, maxDelta, floorY } = flatScene();
     const geom = buildHeightfieldGeometry(
-      upsampled, parcelMin, floorY, "elevation", slope,
+      upsampled, parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const colors = geom.getAttribute("color");
     const floorStart = TOP_VERTS + WALL_VERTS;
@@ -352,11 +354,12 @@ describe("buildHeightfieldGeometry (top + walls + floor)", () => {
     const stats = computeParcelStats(layoutWith([[0, 0]]), raw)!;
     const bounds = computeRegionBounds(upsampled);
     const floorY = bounds.rMin - 8;
+    const maxDelta = bounds.rMax - stats.parcelMin;
     const elevGeom = buildHeightfieldGeometry(
-      upsampled, stats.parcelMin, floorY, "elevation", slope,
+      upsampled, stats.parcelMin, maxDelta, floorY, "elevation", slope,
     );
     const slopeGeom = buildHeightfieldGeometry(
-      upsampled, stats.parcelMin, floorY, "slope", slope,
+      upsampled, stats.parcelMin, maxDelta, floorY, "slope", slope,
     );
     const elevColor0 = elevGeom.getAttribute("color");
     const slopeColor0 = slopeGeom.getAttribute("color");

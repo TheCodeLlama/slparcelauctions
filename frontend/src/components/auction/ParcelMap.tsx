@@ -35,6 +35,8 @@ interface Stats {
   parcelMin: number;
   parcelMax: number;
   parcelCellCount: number;
+  /** Max elevation across the WHOLE region (all 4096 cells, not just parcel). */
+  regionMax: number;
 }
 
 interface CellInfo {
@@ -89,13 +91,15 @@ export function ParcelMap({ publicId, className }: Props) {
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
     let count = 0;
+    let regionMax = Number.NEGATIVE_INFINITY;
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
-        if (!isCellInParcel(decoded.layoutCells, row, col)) continue;
         const e = decodeElevationCell(
           decoded.heightCells, row, col,
           decoded.baseMeters, decoded.stepMeters,
         );
+        if (e > regionMax) regionMax = e;
+        if (!isCellInParcel(decoded.layoutCells, row, col)) continue;
         if (e < min) min = e;
         if (e > max) max = e;
         count++;
@@ -104,7 +108,7 @@ export function ParcelMap({ publicId, className }: Props) {
     if (count === 0) {
       return null;
     }
-    return { parcelMin: min, parcelMax: max, parcelCellCount: count };
+    return { parcelMin: min, parcelMax: max, parcelCellCount: count, regionMax };
   }, [decoded]);
 
   useEffect(() => {
@@ -160,7 +164,7 @@ export function ParcelMap({ publicId, className }: Props) {
         Parcel covers {stats.parcelCellCount * 16} m². Elevation
         {" "}{stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
       </figcaption>
-      <ParcelMapLegend />
+      <ParcelMapLegend maxDelta={Math.max(0, stats.regionMax - stats.parcelMin)} />
       {hover && <ParcelMapTooltip {...hover.cellInfo} pixelX={hover.pixelX} pixelY={hover.pixelY} />}
       <div role="status" aria-live="polite" className="sr-only">
         {liveAnnouncement}
@@ -177,13 +181,14 @@ function paintCells(
   stats: Stats,
 ) {
   const img = ctx.createImageData(CANVAS_PX, CANVAS_PX);
+  const maxDelta = stats.regionMax - stats.parcelMin;
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       const elev = decodeElevationCell(
         decoded.heightCells, row, col,
         decoded.baseMeters, decoded.stepMeters,
       );
-      let color: Rgb = gradientColor(elev - stats.parcelMin);
+      let color: Rgb = gradientColor(elev - stats.parcelMin, maxDelta);
       if (!isCellInParcel(decoded.layoutCells, row, col)) {
         color = dimOutside(color);
       }
@@ -311,14 +316,16 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function ParcelMapLegend() {
-  // Linear gradient mirroring the 2-stop gradient used in colors.ts:
-  //   green at delta=0 (parcel low point)
-  //   red at delta=8+ m (un-flattenable spread)
+function ParcelMapLegend({ maxDelta }: { maxDelta: number }) {
+  // Linear gradient mirroring the 2-stop gradient used in colors.ts. Auto-
+  // scales to the region's actual relief (parcel low -> region high) so the
+  // visible transition is as soft as the data allows -- a cliff face on a
+  // mildly hilly region no longer renders as a hard band.
   // RGB literals rather than #hex keep the no-hex-colors verify guard green.
   const stop = (c: { r: number; g: number; b: number }, pct: number) =>
     `rgb(${c.r}, ${c.g}, ${c.b}) ${pct}%`;
   const gradient = `linear-gradient(to right, ${stop(MAP_COLORS.green, 0)}, ${stop(MAP_COLORS.red, 100)})`;
+  const rightLabel = `+${Math.round(maxDelta)} m`;
   return (
     <div className="w-full max-w-[320px] flex flex-col gap-1">
       <div
@@ -328,12 +335,13 @@ function ParcelMapLegend() {
       />
       <div className="flex justify-between text-[10px] text-fg-muted">
         <span>0 m</span>
-        <span>+8 m+</span>
+        <span>{rightLabel}</span>
       </div>
       <p className="text-[10px] text-fg-muted">
-        Color = elevation above the parcel&apos;s lowest cell. The gradient runs
-        from flat (0 m) to un-flattenable spread (8 m+); the SL terraforming
-        raise/lower limit is 4 m.
+        Color = elevation above the parcel&apos;s lowest cell, scaled to the
+        region&apos;s relief. Green is the parcel low; red is the region high.
+        The SL terraforming raise/lower limit is 4 m; spread above 8 m
+        can&apos;t be levelled.
       </p>
     </div>
   );
