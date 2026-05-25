@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -117,5 +118,33 @@ describe("ParcelMap3D", () => {
     expect(
       screen.getByRole("img", { name: /Interactive 3D region and parcel elevation map/ }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the color mode toggle once scan data is loaded, defaulting to elevation", async () => {
+    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
+    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
+    wrap(<ParcelMap3D publicId={publicId} />);
+    const group = await screen.findByRole("radiogroup", { name: "Color by" });
+    expect(group).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Elevation" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Slope" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("hides the color mode toggle during the loading skeleton state", () => {
+    vi.spyOn(parcelScanApi, "getParcelScan").mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
+    wrap(<ParcelMap3D publicId={publicId} />);
+    expect(screen.queryByRole("radiogroup", { name: "Color by" })).toBeNull();
+  });
+
+  it("clicking the Slope radio writes 'slope' to localStorage", async () => {
+    const user = userEvent.setup();
+    window.localStorage.clear();
+    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
+    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
+    wrap(<ParcelMap3D publicId={publicId} />);
+    const slope = await screen.findByRole("radio", { name: "Slope" });
+    await user.click(slope);
+    expect(window.localStorage.getItem("slpa:parcel-map:3d-color")).toBe("slope");
   });
 });
