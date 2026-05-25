@@ -46,7 +46,11 @@ export function gradientColor(deltaMeters: number): Rgb {
   return lerp(MAP_COLORS.green, MAP_COLORS.red, t);
 }
 
-/** Per-vertex color from a local slope angle in radians (0..pi/2). */
+/**
+ * Per-vertex color from a local slope angle in radians. Gradient maps the
+ * 0..pi/4 (0..45 deg) range; inputs above pi/4 saturate to red, inputs
+ * below 0 clamp to green.
+ */
 export function slopeColor(slopeRad: number): Rgb {
   if (slopeRad <= 0) return { ...MAP_COLORS.green };
   if (slopeRad >= SLOPE_RED_RAD) return { ...MAP_COLORS.red };

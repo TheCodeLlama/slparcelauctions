@@ -331,9 +331,9 @@ function ParcelMapLegend() {
         <span>+8 m+</span>
       </div>
       <p className="text-[10px] text-fg-muted">
-        Color = elevation above the parcel&apos;s lowest cell.
-        +4 m is the SL terraforming raise/lower limit; +8 m+ is
-        un-flattenable spread.
+        Color = elevation above the parcel&apos;s lowest cell. The gradient runs
+        from flat (0 m) to un-flattenable spread (8 m+); the SL terraforming
+        raise/lower limit is 4 m.
       </p>
     </div>
   );
