@@ -160,7 +160,10 @@ public sealed class ScanParcelHandler
             LayoutCellsBase64: Convert.ToBase64String(layoutCells),
             HeightBaseMeters: baseM,
             HeightStepMeters: step,
-            HeightCellsBase64: Convert.ToBase64String(heightCells));
+            HeightCellsBase64: Convert.ToBase64String(heightCells),
+            // Placeholder: replaced by the real classifier output in Task 3.
+            // 4096 zero bytes = every cell classified as Other. Build-green stub only.
+            LandUseCellsBase64: Convert.ToBase64String(new byte[4096]));
 
         HttpResponseMessage resp;
         try

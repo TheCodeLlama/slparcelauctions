@@ -175,6 +175,14 @@ public sealed class FakeBotSession : IBotSession
         _ => Task.FromResult(256);
 
     /// <summary>
+    /// Policy for <see cref="GetAllSimParcelSnapshots"/>. Defaults to
+    /// returning an empty dictionary. Task 3 wires a programmable policy hook
+    /// with integration tests.
+    /// </summary>
+    public Func<IReadOnlyDictionary<uint, ParcelSnapshot>> GetAllSimParcelSnapshotsPolicy { get; set; } =
+        () => new Dictionary<uint, ParcelSnapshot>();
+
+    /// <summary>
     /// Captures every <see cref="GiveGroupMoney"/> call so handler tests can
     /// assert on recipient / amount / memo without touching LibreMetaverse.
     /// </summary>
@@ -225,6 +233,12 @@ public sealed class FakeBotSession : IBotSession
     {
         CallLog.Add(nameof(WaitForRegionTerrainAsync));
         return WaitForRegionTerrainPolicy(ct);
+    }
+
+    public IReadOnlyDictionary<uint, ParcelSnapshot> GetAllSimParcelSnapshots()
+    {
+        CallLog.Add(nameof(GetAllSimParcelSnapshots));
+        return GetAllSimParcelSnapshotsPolicy();
     }
 
     public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
