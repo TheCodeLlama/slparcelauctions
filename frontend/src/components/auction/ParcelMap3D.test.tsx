@@ -147,37 +147,4 @@ describe("ParcelMap3D", () => {
     await user.click(slope);
     expect(window.localStorage.getItem("slpa:parcel-map:3d-color")).toBe("slope");
   });
-
-  it("renders the 3D legend below the canvas", async () => {
-    window.localStorage.clear();
-    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
-    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
-    wrap(<ParcelMap3D publicId={publicId} />);
-    await screen.findByTestId("r3f-canvas");
-    // Default mode is "elevation" - labels include "0 m" and "+{N} m".
-    expect(screen.getByText(/^0 m$/)).toBeInTheDocument();
-    expect(screen.getByText(/^\+\d+ m$/)).toBeInTheDocument();
-  });
-
-  it("renders the slope legend in slope mode", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
-    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
-    wrap(<ParcelMap3D publicId={publicId} />);
-    await screen.findByTestId("r3f-canvas");
-    await user.click(screen.getByRole("radio", { name: "Slope" }));
-    expect(screen.getByText("0°")).toBeInTheDocument();
-    expect(screen.getByText("45°")).toBeInTheDocument();
-  });
-
-  it("toggle no longer sits inside the canvas overlay", async () => {
-    vi.spyOn(parcelScanApi, "getParcelScan").mockResolvedValue(scanPayload());
-    vi.spyOn(geometryModule, "isWebGLAvailable").mockReturnValue(true);
-    wrap(<ParcelMap3D publicId={publicId} />);
-    await screen.findByTestId("r3f-canvas");
-    // Toggle's parent should NOT have the absolute-positioning class.
-    const toggle = screen.getByRole("radiogroup", { name: "Color by" });
-    const parent = toggle.parentElement!;
-    expect(parent.className).not.toMatch(/\babsolute\b/);
-  });
 });

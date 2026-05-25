@@ -193,7 +193,7 @@ export default function ParcelMap3D({
       <div className="flex flex-col gap-1 w-full max-w-[320px]">
         <ParcelMap3DLegend
           mode={colorMode}
-          maxDelta={bounds && stats ? bounds.rMax - stats.parcelMin : 0}
+          maxDelta={bounds.rMax - stats.parcelMin}
         />
         <ParcelMap3DColorModeToggle mode={colorMode} onChange={setColorMode} />
       </div>
