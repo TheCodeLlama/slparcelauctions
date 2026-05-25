@@ -7,6 +7,7 @@ import { useParcelScan } from "@/hooks/useParcelScan";
 import {
   decodeBase64ToBytes,
   decodeElevationCell,
+  decodeLandUseCell,
   isCellInParcel,
 } from "@/lib/parcelMap/encoding";
 import {
@@ -15,6 +16,10 @@ import {
   gradientColor,
   type Rgb,
 } from "@/lib/parcelMap/colors";
+import { landUseCellColor, landUseCategoryLabel } from "@/lib/parcelMap/landUseColors";
+import { useParcelMap2DColorMode } from "@/hooks/useParcelMap2DColorMode";
+import { ParcelMap2DColorModeToggle } from "./ParcelMap2DColorModeToggle";
+import { ParcelMapLandUseLegend } from "./ParcelMapLandUseLegend";
 
 const GRID = 64;
 const CELL_PX = 4;
@@ -44,6 +49,8 @@ interface CellInfo {
   col: number;
   elevM: number;
   inParcel: boolean;
+  /** Populated in Land Use mode; null in Elevation mode. */
+  landUseValue: number | null;
 }
 
 interface Decoded {
@@ -51,6 +58,7 @@ interface Decoded {
   heightCells: Uint8Array;
   baseMeters: number;
   stepMeters: number;
+  landUseCells: Uint8Array | null;
 }
 
 /**
@@ -75,6 +83,12 @@ export function ParcelMap({ publicId, className }: Props) {
   const figureRef = useRef<HTMLElement | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [focusCell, setFocusCell] = useState<{ row: number; col: number } | null>(null);
+  const [colorMode, setColorMode] = useParcelMap2DColorMode();
+  const landUseAvailable = data?.landUseCellsBase64 != null;
+  // If land use is unavailable but the user previously selected "landuse",
+  // fall back to elevation rendering. The toggle still shows "landuse" as
+  // aria-disabled so the user understands why.
+  const activeMode = landUseAvailable ? colorMode : "elevation";
 
   const decoded: Decoded | null = useMemo(() => {
     if (!data) return null;
@@ -83,6 +97,9 @@ export function ParcelMap({ publicId, className }: Props) {
       heightCells: decodeBase64ToBytes(data.heightCellsBase64),
       baseMeters: data.baseMeters,
       stepMeters: data.stepMeters,
+      landUseCells: data.landUseCellsBase64
+        ? decodeBase64ToBytes(data.landUseCellsBase64)
+        : null,
     };
   }, [data]);
 
@@ -117,10 +134,12 @@ export function ParcelMap({ publicId, className }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    paintCells(ctx, decoded, stats);
-    paintBoundary(ctx, decoded.layoutCells);
+    paintCells(ctx, decoded, stats, activeMode);
+    if (activeMode === "elevation") {
+      paintBoundary(ctx, decoded.layoutCells);
+    }
     if (focusCell) paintFocusCursor(ctx, focusCell.row, focusCell.col);
-  }, [decoded, stats, focusCell]);
+  }, [decoded, stats, focusCell, activeMode]);
 
   if (isPending) {
     return (
@@ -138,7 +157,10 @@ export function ParcelMap({ publicId, className }: Props) {
     return null;
   }
 
-  const liveAnnouncement = announcementFor(hover?.cellInfo ?? cellInfoFor(focusCell, decoded));
+  const liveAnnouncement = announcementFor(
+    hover?.cellInfo ?? cellInfoFor(focusCell, decoded, activeMode),
+    activeMode,
+  );
 
   return (
     <figure ref={figureRef} className={cn("relative flex flex-col gap-2", className)}>
@@ -150,7 +172,7 @@ export function ParcelMap({ publicId, className }: Props) {
         role="application"
         aria-label="Region parcel and elevation map, 64 by 64 cells"
         className="aspect-square w-full max-w-[320px] border border-border-subtle [image-rendering:pixelated]"
-        onMouseMove={(e) => setHover(cellInfoForEvent(e, decoded, figureRef.current))}
+        onMouseMove={(e) => setHover(cellInfoForEvent(e, decoded, figureRef.current, activeMode))}
         onMouseLeave={() => setHover(null)}
         onKeyDown={(e) => {
           const next = moveFocus(focusCell, e.key);
@@ -164,7 +186,16 @@ export function ParcelMap({ publicId, className }: Props) {
         Parcel covers {stats.parcelCellCount * 16} m². Elevation
         {" "}{stats.parcelMin.toFixed(1)} m to {stats.parcelMax.toFixed(1)} m.
       </figcaption>
-      <ParcelMapLegend maxDelta={Math.max(0, stats.regionMax - stats.parcelMin)} />
+      <div className="flex flex-col gap-1 w-full max-w-[320px]">
+        {activeMode === "landuse"
+          ? <ParcelMapLandUseLegend />
+          : <ParcelMapElevationLegend maxDelta={Math.max(0, stats.regionMax - stats.parcelMin)} />}
+        <ParcelMap2DColorModeToggle
+          mode={colorMode}
+          onChange={setColorMode}
+          landUseAvailable={landUseAvailable}
+        />
+      </div>
       {hover && <ParcelMapTooltip {...hover.cellInfo} pixelX={hover.pixelX} pixelY={hover.pixelY} />}
       <div role="status" aria-live="polite" className="sr-only">
         {liveAnnouncement}
@@ -179,18 +210,26 @@ function paintCells(
   ctx: CanvasRenderingContext2D,
   decoded: Decoded,
   stats: Stats,
+  mode: "elevation" | "landuse",
 ) {
   const img = ctx.createImageData(CANVAS_PX, CANVAS_PX);
   const maxDelta = stats.regionMax - stats.parcelMin;
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
-      const elev = decodeElevationCell(
-        decoded.heightCells, row, col,
-        decoded.baseMeters, decoded.stepMeters,
-      );
-      let color: Rgb = gradientColor(elev - stats.parcelMin, maxDelta);
-      if (!isCellInParcel(decoded.layoutCells, row, col)) {
-        color = dimOutside(color);
+      let color: Rgb;
+      if (mode === "landuse" && decoded.landUseCells) {
+        // Land Use mode: flat categorical color, no dim-outside treatment.
+        color = landUseCellColor(decodeLandUseCell(decoded.landUseCells, row, col));
+      } else {
+        // Elevation mode: gradient from parcel low to region high, outside cells dimmed.
+        const elev = decodeElevationCell(
+          decoded.heightCells, row, col,
+          decoded.baseMeters, decoded.stepMeters,
+        );
+        color = gradientColor(elev - stats.parcelMin, maxDelta);
+        if (!isCellInParcel(decoded.layoutCells, row, col)) {
+          color = dimOutside(color);
+        }
       }
       // SW-first flip: row 0 = south edge of region, canvas y=0 = top of canvas.
       const canvasY = (GRID - 1 - row) * CELL_PX;
@@ -256,6 +295,7 @@ function cellInfoForEvent(
   e: React.MouseEvent<HTMLCanvasElement>,
   decoded: Decoded,
   figureEl: HTMLElement | null,
+  mode: "elevation" | "landuse",
 ): HoverState {
   // Row/col math uses the canvas bounding rect (CSS-upscaled display coords).
   const canvasRect = e.currentTarget.getBoundingClientRect();
@@ -265,7 +305,7 @@ function cellInfoForEvent(
   const visualRow = clamp(Math.floor((yPx / canvasRect.height) * GRID), 0, GRID - 1);
   // Flip back from canvas-y (top-down) to row (SW-first, south-up).
   const row = GRID - 1 - visualRow;
-  const cellInfo = cellInfoFor({ row, col }, decoded)!;
+  const cellInfo = cellInfoFor({ row, col }, decoded, mode)!;
 
   // Tooltip position uses the figure bounding rect so the absolutely-
   // positioned tooltip sits inside the <figure> container without overflow.
@@ -280,6 +320,7 @@ function cellInfoForEvent(
 function cellInfoFor(
   cell: { row: number; col: number } | null,
   decoded: Decoded,
+  mode: "elevation" | "landuse" = "elevation",
 ): CellInfo | null {
   if (!cell) return null;
   const elevM = decodeElevationCell(
@@ -287,15 +328,24 @@ function cellInfoFor(
     decoded.baseMeters, decoded.stepMeters,
   );
   const inParcel = isCellInParcel(decoded.layoutCells, cell.row, cell.col);
-  return { row: cell.row, col: cell.col, elevM, inParcel };
+  const landUseValue =
+    mode === "landuse" && decoded.landUseCells
+      ? decodeLandUseCell(decoded.landUseCells, cell.row, cell.col)
+      : null;
+  return { row: cell.row, col: cell.col, elevM, inParcel, landUseValue };
 }
 
-function announcementFor(info: CellInfo | null): string {
+function announcementFor(info: CellInfo | null, mode: "elevation" | "landuse" = "elevation"): string {
   if (!info) return "";
-  const where = info.inParcel ? "in parcel" : "outside parcel";
+  const worldX = info.col * 4;
+  const worldY = info.row * 4;
   // SL world coords for the SW corner of this 4 m cell. col -> x (east),
   // row -> y (north); 4 m per cell, region is 0..256 m.
-  return `Position ${info.col * 4}, ${info.row * 4}. Elevation ${info.elevM.toFixed(1)} meters. ${where}.`;
+  if (mode === "landuse" && info.landUseValue != null) {
+    return `(${worldX}, ${worldY}): ${landUseCategoryLabel(info.landUseValue)}`;
+  }
+  const where = info.inParcel ? "in parcel" : "outside parcel";
+  return `Position ${worldX}, ${worldY}. Elevation ${info.elevM.toFixed(1)} meters. ${where}.`;
 }
 
 function moveFocus(
@@ -316,7 +366,7 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function ParcelMapLegend({ maxDelta }: { maxDelta: number }) {
+function ParcelMapElevationLegend({ maxDelta }: { maxDelta: number }) {
   // Linear gradient mirroring the 2-stop gradient used in colors.ts. Auto-
   // scales to the region's actual relief (parcel low -> region high) so the
   // visible transition is as soft as the data allows -- a cliff face on a
@@ -347,16 +397,25 @@ function ParcelMapLegend({ maxDelta }: { maxDelta: number }) {
   );
 }
 
-function ParcelMapTooltip({ row, col, elevM, inParcel, pixelX, pixelY }: CellInfo & { pixelX: number; pixelY: number }) {
+function ParcelMapTooltip({ row, col, elevM, inParcel, landUseValue, pixelX, pixelY }: CellInfo & { pixelX: number; pixelY: number }) {
+  const worldX = col * 4;
+  const worldY = row * 4;
+  const isLandUse = landUseValue != null;
   return (
     <div
       style={{ left: pixelX + 12, top: pixelY + 12 }}
       className="absolute pointer-events-none rounded-md border border-border-subtle bg-surface-raised px-2 py-1 text-xs text-fg shadow"
       role="presentation"
     >
-      <div>Pos: {col * 4}, {row * 4}</div>
-      <div>Elevation {elevM.toFixed(1)} m</div>
-      <div>{inParcel ? "In parcel" : "Outside parcel"}</div>
+      {isLandUse ? (
+        <div>({worldX}, {worldY}): {landUseCategoryLabel(landUseValue)}</div>
+      ) : (
+        <>
+          <div>Pos: {worldX}, {worldY}</div>
+          <div>Elevation {elevM.toFixed(1)} m</div>
+          <div>{inParcel ? "In parcel" : "Outside parcel"}</div>
+        </>
+      )}
     </div>
   );
 }
