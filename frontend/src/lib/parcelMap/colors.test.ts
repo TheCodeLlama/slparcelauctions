@@ -1,40 +1,72 @@
 import { describe, it, expect } from "vitest";
-import { gradientColor, dimOutside, MAP_COLORS } from "./colors";
+import { gradientColor, slopeColor, dimOutside, MAP_COLORS } from "./colors";
 
-describe("gradientColor", () => {
+describe("gradientColor (2-stop green->red)", () => {
   it("returns solid green when delta <= 0", () => {
     expect(gradientColor(-2)).toEqual(MAP_COLORS.green);
     expect(gradientColor(0)).toEqual(MAP_COLORS.green);
   });
 
-  it("returns yellow at delta = 4 (terraforming limit)", () => {
-    expect(gradientColor(4)).toEqual(MAP_COLORS.yellow);
-  });
-
-  it("returns red at delta = 8 (un-flattenable spread)", () => {
+  it("returns solid red when delta >= 8", () => {
     expect(gradientColor(8)).toEqual(MAP_COLORS.red);
-  });
-
-  it("returns solid red when delta > 8", () => {
     expect(gradientColor(12)).toEqual(MAP_COLORS.red);
   });
 
-  it("lerps green->yellow at delta = 2 (midpoint of first segment)", () => {
+  it("lerps green->red linearly at the midpoint (delta = 4 m)", () => {
     const g = MAP_COLORS.green;
-    const y = MAP_COLORS.yellow;
-    const mid = gradientColor(2);
-    expect(mid.r).toBeCloseTo((g.r + y.r) / 2, 0);
-    expect(mid.g).toBeCloseTo((g.g + y.g) / 2, 0);
-    expect(mid.b).toBeCloseTo((g.b + y.b) / 2, 0);
+    const r = MAP_COLORS.red;
+    const mid = gradientColor(4);
+    expect(mid.r).toBeCloseTo((g.r + r.r) / 2, 0);
+    expect(mid.g).toBeCloseTo((g.g + r.g) / 2, 0);
+    expect(mid.b).toBeCloseTo((g.b + r.b) / 2, 0);
   });
 
-  it("lerps yellow->red at delta = 6 (midpoint of second segment)", () => {
-    const y = MAP_COLORS.yellow;
+  it("lerps green->red at delta = 2 m (25% of the way)", () => {
+    const g = MAP_COLORS.green;
     const r = MAP_COLORS.red;
-    const mid = gradientColor(6);
-    expect(mid.r).toBeCloseTo((y.r + r.r) / 2, 0);
-    expect(mid.g).toBeCloseTo((y.g + r.g) / 2, 0);
-    expect(mid.b).toBeCloseTo((y.b + r.b) / 2, 0);
+    const t = 0.25;
+    const c = gradientColor(2);
+    expect(c.r).toBeCloseTo(g.r + (r.r - g.r) * t, 0);
+    expect(c.g).toBeCloseTo(g.g + (r.g - g.g) * t, 0);
+    expect(c.b).toBeCloseTo(g.b + (r.b - g.b) * t, 0);
+  });
+
+  it("lerps green->red at delta = 6 m (75% of the way)", () => {
+    const g = MAP_COLORS.green;
+    const r = MAP_COLORS.red;
+    const t = 0.75;
+    const c = gradientColor(6);
+    expect(c.r).toBeCloseTo(g.r + (r.r - g.r) * t, 0);
+    expect(c.g).toBeCloseTo(g.g + (r.g - g.g) * t, 0);
+    expect(c.b).toBeCloseTo(g.b + (r.b - g.b) * t, 0);
+  });
+});
+
+describe("slopeColor (2-stop green->red, 0..45 deg)", () => {
+  it("returns solid green at flat (0 rad)", () => {
+    expect(slopeColor(0)).toEqual(MAP_COLORS.green);
+  });
+
+  it("returns solid red at 45 deg (Math.PI / 4 rad)", () => {
+    expect(slopeColor(Math.PI / 4)).toEqual(MAP_COLORS.red);
+  });
+
+  it("saturates at red for slopes above 45 deg", () => {
+    expect(slopeColor(Math.PI / 2)).toEqual(MAP_COLORS.red);
+    expect(slopeColor(Math.PI)).toEqual(MAP_COLORS.red);
+  });
+
+  it("clamps to green for negative slopes (defensive)", () => {
+    expect(slopeColor(-0.1)).toEqual(MAP_COLORS.green);
+  });
+
+  it("lerps green->red linearly at half scale (22.5 deg = Math.PI / 8)", () => {
+    const g = MAP_COLORS.green;
+    const r = MAP_COLORS.red;
+    const c = slopeColor(Math.PI / 8);
+    expect(c.r).toBeCloseTo((g.r + r.r) / 2, 0);
+    expect(c.g).toBeCloseTo((g.g + r.g) / 2, 0);
+    expect(c.b).toBeCloseTo((g.b + r.b) / 2, 0);
   });
 });
 
