@@ -18,6 +18,42 @@ export const UPSAMPLED_GRID = GRID * UPSAMPLE_FACTOR + 1;
 /** Spacing between upsampled vertices in meters (REGION_M / (UPSAMPLED_GRID - 1)). */
 export const UPSAMPLED_SPACING_M = REGION_M / (UPSAMPLED_GRID - 1);
 
+/**
+ * Wall-vertex color multiplier vs the top-surface color at the same X/Z.
+ * 0.55 was chosen during brainstorming as the visual weight of a "darker
+ * shaded side" -- clearly distinct from the top while still recognizable
+ * as the same terrain material. Both top and bottom edges of every wall
+ * vertex use this multiplier so the wall reads as a uniformly-dimmed strip.
+ */
+const WALL_DIM = 0.55;
+/**
+ * Bottom-plane face color. Fixed neutral earth tone, not derived from the
+ * terrain. The floor is rarely visible (only on aggressive low-angle orbit
+ * that gets the camera below the region), so this is defensive coverage to
+ * avoid a transparent void rather than a primary visual element.
+ */
+const FLOOR_COLOR = { r: 60, g: 50, b: 40 };
+
+/**
+ * Vertex color for a top-surface vertex, dispatched by color mode. Returns
+ * {@link gradientColor}'s elevation-delta hue in {@code "elevation"} mode
+ * or {@link slopeColor}'s slope-angle hue in {@code "slope"} mode.
+ */
+function topColorAt(
+  uRow: number,
+  uCol: number,
+  upsampled: Float32Array,
+  slopeGrid: Float32Array,
+  parcelMin: number,
+  mode: "elevation" | "slope",
+) {
+  const idx = uRow * UPSAMPLED_GRID + uCol;
+  if (mode === "elevation") {
+    return gradientColor(upsampled[idx] - parcelMin);
+  }
+  return slopeColor(slopeGrid[idx]);
+}
+
 export interface RegionBounds {
   rMin: number;
   rMax: number;
@@ -209,12 +245,12 @@ export function computeParcelStats(
  * fixed neutral earth tone.
  *
  * Vertex layout (used by tests asserting positions/colors/normals by index):
- *   [0 .. TOP_VERTS)              top mesh, row-major (uRow * UPSAMPLED_GRID + uCol)
- *   [TOP_VERTS .. +PER_WALL)      south wall, pairs of (top-edge, bottom-edge) by uCol
- *   [+PER_WALL .. +2*PER_WALL)    north wall, same pair ordering by uCol
- *   [+2*PER_WALL .. +3*PER_WALL)  west wall, pairs by uRow
- *   [+3*PER_WALL .. +4*PER_WALL)  east wall, pairs by uRow
- *   [TOP_VERTS + WALL_VERTS ..)   floor (4 vertices, SW SE NW NE)
+ *   [0 .. TOP_VERTS)                          top mesh, row-major (uRow * UPSAMPLED_GRID + uCol)
+ *   [TOP_VERTS .. +PER_WALL_VERTS)            south wall, pairs of (top-edge, bottom-edge) by uCol
+ *   [+PER_WALL_VERTS .. +2*PER_WALL_VERTS)    north wall, same pair ordering by uCol
+ *   [+2*PER_WALL_VERTS .. +3*PER_WALL_VERTS)  west wall, pairs by uRow
+ *   [+3*PER_WALL_VERTS .. +4*PER_WALL_VERTS)  east wall, pairs by uRow
+ *   [TOP_VERTS + WALL_VERTS ..)               floor (4 vertices, SW SE NW NE)
  *
  * Wall triangle winding is CCW from outside the region so face normals
  * point outward (south=-Z, north=+Z, west=-X, east=+X). Floor winding is
@@ -275,6 +311,14 @@ export function buildHeightfieldGeometry(
   // ---- 2. Walls (south, north, west, east in this order) ----
   let vCursor = TOP_VERTS;
 
+  // Emit one wall strip. Each call writes `perimeterCount` vertex-pairs
+  // (top-edge + bottom-edge at each perimeter point) and `perimeterCount - 1`
+  // quads. The `quadIndices` callback maps the four base vertex offsets for
+  // each quad (top-edge-A, bottom-edge-A, top-edge-B, bottom-edge-B) to 6
+  // CCW triangle indices; winding direction differs per wall so face normals
+  // point OUTWARD from the region center (south=-Z, north=+Z, west=-X,
+  // east=+X). Wall color = top-surface color at the same perimeter X/Z,
+  // multiplied by WALL_DIM for both the top and bottom edge of the wall.
   function emitWall(opts: {
     perimeterIndex: (i: number) => number;
     perimeterX: (i: number) => number;
@@ -350,7 +394,7 @@ export function buildHeightfieldGeometry(
 
   // West wall: uCol = 0, x = 0. CCW from outside (-X side) -> normal = -X.
   vCursor = emitWall({
-    perimeterIndex: (uRow) => uRow * UPSAMPLED_GRID + 0,
+    perimeterIndex: (uRow) => uRow * UPSAMPLED_GRID,
     perimeterX: () => 0,
     perimeterZ: (uRow) => uRow * UPSAMPLED_SPACING_M,
     perimeterCount: UPSAMPLED_GRID,
@@ -374,7 +418,7 @@ export function buildHeightfieldGeometry(
 
   // ---- 3. Floor ----
   const floorStart = TOP_VERTS + WALL_VERTS;
-  const REGION_END = (UPSAMPLED_GRID - 1) * UPSAMPLED_SPACING_M;
+  const REGION_END = (UPSAMPLED_GRID - 1) * UPSAMPLED_SPACING_M; // = REGION_M (256 m)
   const floorCorners: Array<[number, number, number]> = [
     [0, floorY, 0],
     [REGION_END, floorY, 0],
@@ -403,25 +447,6 @@ export function buildHeightfieldGeometry(
   return geometry;
 }
 
-/** Wall vertex color = top color * WALL_DIM (darker shaded side). */
-const WALL_DIM = 0.55;
-/** Floor face color (defensive coverage for low-orbit visibility). */
-const FLOOR_COLOR = { r: 60, g: 50, b: 40 };
-
-function topColorAt(
-  uRow: number,
-  uCol: number,
-  upsampled: Float32Array,
-  slopeGrid: Float32Array,
-  parcelMin: number,
-  mode: "elevation" | "slope",
-) {
-  const idx = uRow * UPSAMPLED_GRID + uCol;
-  if (mode === "elevation") {
-    return gradientColor(upsampled[idx] - parcelMin);
-  }
-  return slopeColor(slopeGrid[idx]);
-}
 
 /**
  * Sample the upsampled grid at world (x, z) coordinates in meters. With
