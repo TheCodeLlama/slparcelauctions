@@ -137,6 +137,26 @@ describe("buildHeightfieldGeometry", () => {
     expect(colors.getY(0)).toBeCloseTo(197 / 255);
     expect(colors.getZ(0)).toBeCloseTo(94 / 255);
   });
+
+  it("produces upward-facing vertex normals (terrain points +Y on average)", () => {
+    // Use a varying (not flat) input so vertex normals are computed from
+    // genuine face normals, not degenerate zero-area triangles at edges.
+    const heights = new Uint8Array(4096);
+    for (let i = 0; i < heights.length; i++) heights[i] = i % 50;
+    const upsampled = bicubicUpsample(decodeElevationGrid(heights, 22, 0.5));
+    const stats = computeParcelStats(
+      layoutWith([[10, 10]]), decodeElevationGrid(heights, 22, 0.5),
+    )!;
+    const geom = buildHeightfieldGeometry(upsampled, stats.parcelMin);
+    const normals = geom.getAttribute("normal");
+    let sumY = 0;
+    for (let i = 0; i < normals.count; i++) sumY += normals.getY(i);
+    const avgY = sumY / normals.count;
+    // Any positive average proves the winding is correct. Flat terrain
+    // would give avgY = 1; rolling terrain will be lower but still well
+    // above 0. With bad (reversed) winding this value would be negative.
+    expect(avgY).toBeGreaterThan(0.3);
+  });
 });
 
 describe("sampleUpsampled", () => {
