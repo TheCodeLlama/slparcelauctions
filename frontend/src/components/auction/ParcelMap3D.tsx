@@ -21,6 +21,7 @@ import {
 } from "@/lib/parcelMap3D/geometry";
 import { ParcelMap3DSkeleton } from "./ParcelMap3DSkeleton";
 import { ParcelMap3DColorModeToggle } from "./ParcelMap3DColorModeToggle";
+import { ParcelMap3DLegend } from "./ParcelMap3DLegend";
 
 interface Props {
   publicId: string;
@@ -152,45 +153,48 @@ export default function ParcelMap3D({
   }
 
   return (
-    <div
-      role="img"
-      aria-label="Interactive 3D region and parcel elevation map"
-      className={cn(
-        "relative aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle",
-        className,
-      )}
-    >
-      <Canvas>
-        <PerspectiveCamera
-          makeDefault
-          fov={camera.fovDeg}
-          position={camera.position}
-          near={0.1}
-          far={2000}
-        />
-        <OrbitControls
-          target={camera.target}
-          enableDamping={!reducedMotion}
-          autoRotate={false}
-          minDistance={20}
-          maxDistance={1000}
-        />
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[-50, 100, -50]} intensity={1.0} />
-        <mesh geometry={meshGeometry}>
-          <meshStandardMaterial vertexColors />
-        </mesh>
-        {perimeterPoints.length > 0 && (
-          <Line
-            points={perimeterPoints}
-            color="white"
-            lineWidth={2}
-            depthTest
-            segments
+    <div className={cn("flex flex-col items-center gap-2", className)}>
+      <div
+        role="img"
+        aria-label="Interactive 3D region and parcel elevation map"
+        className="relative aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle"
+      >
+        <Canvas>
+          <PerspectiveCamera
+            makeDefault
+            fov={camera.fovDeg}
+            position={camera.position}
+            near={0.1}
+            far={2000}
           />
-        )}
-      </Canvas>
-      <div className="absolute top-2 right-2">
+          <OrbitControls
+            target={camera.target}
+            enableDamping={!reducedMotion}
+            autoRotate={false}
+            minDistance={20}
+            maxDistance={1000}
+          />
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[-50, 100, -50]} intensity={1.0} />
+          <mesh geometry={meshGeometry}>
+            <meshStandardMaterial vertexColors />
+          </mesh>
+          {perimeterPoints.length > 0 && (
+            <Line
+              points={perimeterPoints}
+              color="white"
+              lineWidth={2}
+              depthTest
+              segments
+            />
+          )}
+        </Canvas>
+      </div>
+      <div className="flex flex-col gap-1 w-full max-w-[320px]">
+        <ParcelMap3DLegend
+          mode={colorMode}
+          maxDelta={bounds && stats ? bounds.rMax - stats.parcelMin : 0}
+        />
         <ParcelMap3DColorModeToggle mode={colorMode} onChange={setColorMode} />
       </div>
     </div>

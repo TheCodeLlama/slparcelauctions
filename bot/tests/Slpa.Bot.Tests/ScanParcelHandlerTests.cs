@@ -61,6 +61,22 @@ public sealed class ScanParcelHandlerTests
         return grid;
     }
 
+    private static ParcelSnapshot MakeSnapshot(string name = "", bool forSale = false) =>
+        new(
+            Guid.Empty,
+            Guid.Empty,
+            false,
+            Guid.Empty,
+            0,
+            forSale,
+            name,
+            string.Empty,
+            0,
+            0,
+            0,
+            Guid.Empty,
+            0);
+
     private static float[,] FlatTerrain(float height = 30f)
     {
         var t = new float[64, 64];
@@ -101,6 +117,10 @@ public sealed class ScanParcelHandlerTests
         _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
         _session.ParcelLocalIdsPolicy = () => MakeParcelGrid((int)ourLocalId, 10, 21, 5, 16);
         _session.TerrainHeightsPolicy = () => FlatTerrain(30f);
+        _session.GetAllSimParcelSnapshotsPolicy = () => new Dictionary<uint, ParcelSnapshot>
+        {
+            [ourLocalId] = MakeSnapshot(name: "The listed parcel"),
+        };
 
         await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
 
@@ -141,6 +161,23 @@ public sealed class ScanParcelHandlerTests
         var heights = Convert.FromBase64String(_captured.HeightCellsBase64);
         heights.Should().HaveCount(4096);
         heights.Should().AllBeEquivalentTo((byte)0);
+
+        // Land Use: cells in the parcel rectangle (rows 10..20, cols 5..15) are
+        // Listed; all others are Other (the otherLocalId=99 has no snapshot entry).
+        var landUse = Convert.FromBase64String(_captured.LandUseCellsBase64);
+        landUse.Should().HaveCount(4096);
+        for (int row = 0; row < 64; row++)
+        {
+            for (int col = 0; col < 64; col++)
+            {
+                bool inParcel = row >= 10 && row <= 20 && col >= 5 && col <= 15;
+                var expected = inParcel
+                    ? (byte)ParcelLandUseCategory.Listed
+                    : (byte)ParcelLandUseCategory.Other;
+                landUse[row * 64 + col].Should().Be(expected,
+                    $"cell row={row} col={col} should be {(inParcel ? "Listed" : "Other")}");
+            }
+        }
     }
 
     [Fact]
@@ -350,6 +387,59 @@ public sealed class ScanParcelHandlerTests
                 It.IsAny<long>(), It.IsAny<ScanResultRequest>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task LandUseCells_ClassifiesMixedRegion()
+    {
+        const uint ourLocalId = 42u;
+        const uint abandonedId = 100u;
+        const uint protectedId = 101u;
+        const uint forSaleId = 200u;
+        const uint otherId = 201u;
+
+        _session.RequestAllSimParcelsPolicy = (_, _) => (int)ourLocalId;
+        _session.ParcelLocalIdsPolicy = () =>
+        {
+            var grid = new uint[64, 64];
+            for (int r = 10; r <= 20; r++)
+                for (int c = 5; c <= 15; c++)
+                    grid[r, c] = ourLocalId;
+            for (int r = 0; r <= 4; r++)
+                for (int c = 60; c <= 63; c++)
+                    grid[r, c] = abandonedId;
+            for (int c = 0; c <= 63; c++)
+                grid[30, c] = protectedId;
+            for (int r = 40; r <= 45; r++)
+                for (int c = 0; c <= 4; c++)
+                    grid[r, c] = forSaleId;
+            for (int r = 50; r <= 52; r++)
+                for (int c = 50; c <= 52; c++)
+                    grid[r, c] = otherId;
+            return grid;
+        };
+        _session.TerrainHeightsPolicy = () => FlatTerrain(30f);
+        _session.GetAllSimParcelSnapshotsPolicy = () => new Dictionary<uint, ParcelSnapshot>
+        {
+            [ourLocalId] = MakeSnapshot(name: "listed"),
+            [abandonedId] = MakeSnapshot(name: "Abandoned Land"),
+            [protectedId] = MakeSnapshot(name: "Protected Land"),
+            [forSaleId] = MakeSnapshot(name: "for sale player parcel", forSale: true),
+            [otherId] = MakeSnapshot(name: "private player parcel"),
+        };
+
+        await NewHandler().HandleAsync(BuildTask(), CancellationToken.None);
+
+        _captured.Should().NotBeNull();
+        var landUse = Convert.FromBase64String(_captured!.LandUseCellsBase64);
+        landUse.Should().HaveCount(4096);
+
+        landUse[10 * 64 + 5].Should().Be((byte)ParcelLandUseCategory.Listed);
+        landUse[0 * 64 + 63].Should().Be((byte)ParcelLandUseCategory.Abandoned);
+        landUse[30 * 64 + 32].Should().Be((byte)ParcelLandUseCategory.Protected);
+        landUse[40 * 64 + 0].Should().Be((byte)ParcelLandUseCategory.ForSale);
+        landUse[50 * 64 + 50].Should().Be((byte)ParcelLandUseCategory.Other);
+        landUse[63 * 64 + 0].Should().Be((byte)ParcelLandUseCategory.Other);
     }
 
     [Fact]

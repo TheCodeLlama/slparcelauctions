@@ -121,4 +121,15 @@ public interface IBotSession : IAsyncDisposable
     /// <c>Terrain.LandPatchReceived</c> event; thread-safe.
     /// </summary>
     Task<int> WaitForRegionTerrainAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Returns a snapshot of every parcel currently cached in the simulator's
+    /// Parcels dictionary, keyed by LocalID. Use for per-cell classification
+    /// passes (e.g. land-use category) that need parcel metadata across many
+    /// cells. Call after <see cref="RequestAllSimParcelsAsync"/> so the cache
+    /// is populated. Missing LocalIDs (partial-download race) simply won't
+    /// appear in the returned dict; callers should TryGetValue and treat
+    /// misses as "unknown". Returns an empty dict if no simulator is resolved.
+    /// </summary>
+    IReadOnlyDictionary<uint, ParcelSnapshot> GetAllSimParcelSnapshots();
 }

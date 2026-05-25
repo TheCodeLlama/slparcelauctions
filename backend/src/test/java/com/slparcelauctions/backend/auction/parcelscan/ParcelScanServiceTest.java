@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction.parcelscan;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.Base64;
@@ -47,6 +48,7 @@ class ParcelScanServiceTest {
     @Autowired ParcelScanService parcelScanService;
     @Autowired AuctionParcelLayoutRepository layoutRepo;
     @Autowired AuctionParcelHeightMapRepository heightRepo;
+    @Autowired AuctionParcelLandUseRepository landUseRepo;
     @Autowired BotTaskRepository botTaskRepo;
     @Autowired BotTaskService botTaskService;
     @Autowired AuctionRepository auctionRepo;
@@ -174,11 +176,17 @@ class ParcelScanServiceTest {
 
         byte[] layoutCells = new byte[512];
         byte[] heightCells = new byte[4096];
+        byte[] expectedLandUseCells = new byte[4096];
+        expectedLandUseCells[0] = 1; // Listed
+        expectedLandUseCells[4] = 4; // Protected
+        expectedLandUseCells[5] = 2; // Abandoned
+        expectedLandUseCells[63 * 64 + 63] = 3; // ForSale
         BotScanResultRequest req = new BotScanResultRequest(
                 64, 4,
                 Base64.getEncoder().encodeToString(layoutCells),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(heightCells));
+                Base64.getEncoder().encodeToString(heightCells),
+                Base64.getEncoder().encodeToString(expectedLandUseCells));
 
         parcelScanService.applyScanResult(task.getId(), req);
         em.flush();
@@ -190,6 +198,13 @@ class ParcelScanServiceTest {
         BotTask completed = botTaskRepo.findById(task.getId()).orElseThrow();
         assertThat(completed.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
         assertThat(completed.getCompletedAt()).isNotNull();
+
+        AuctionParcelLandUse landUse = landUseRepo.findByAuctionId(auction.getId()).orElseThrow();
+        assertThat(landUse.getGridSize()).isEqualTo(64);
+        assertThat(landUse.getCellSizeMeters()).isEqualTo(4);
+        assertThat(landUse.getCells()).isEqualTo(expectedLandUseCells);
+        AuctionParcelLayout layout = layoutRepo.findByAuctionId(auction.getId()).orElseThrow();
+        assertThat(landUse.getScannedAt()).isEqualTo(layout.getScannedAt());
     }
 
     @Test
@@ -204,7 +219,8 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(badLayout),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(heightCells));
+                Base64.getEncoder().encodeToString(heightCells),
+                Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(task.getId(), req))
                 .isInstanceOf(ResponseStatusException.class)
@@ -224,7 +240,8 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(layoutCells),
                 22.0f, 0.5f,
-                Base64.getEncoder().encodeToString(badHeight));
+                Base64.getEncoder().encodeToString(badHeight),
+                Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(task.getId(), req))
                 .isInstanceOf(ResponseStatusException.class)
@@ -242,6 +259,7 @@ class ParcelScanServiceTest {
                 64, 4,
                 "!!!not-base64",
                 22.0f, 0.5f,
+                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(task.getId(), req))
@@ -260,6 +278,7 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 Float.NaN, 0.5f,
+                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(task.getId(), req))
@@ -278,6 +297,7 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 22.0f, 0f,
+                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(task.getId(), req))
@@ -296,6 +316,7 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 22.0f, 0.5f,
+                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         // First apply succeeds
@@ -334,12 +355,60 @@ class ParcelScanServiceTest {
                 64, 4,
                 Base64.getEncoder().encodeToString(new byte[512]),
                 22.0f, 0.5f,
+                Base64.getEncoder().encodeToString(new byte[4096]),
                 Base64.getEncoder().encodeToString(new byte[4096]));
 
         assertThatThrownBy(() -> parcelScanService.applyScanResult(taskId, req))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
                         .isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void applyScanResult_RejectsLandUseLengthMismatch() {
+        Auction auction = savedAuction(savedUser("landuse-len"));
+        BotTask task = botTaskService.enqueueScanParcel(auction);
+        em.flush();
+
+        byte[] layoutCells = new byte[512];
+        byte[] heightCells = new byte[4096];
+        byte[] badLandUse = new byte[2048]; // wrong length
+
+        BotScanResultRequest req = new BotScanResultRequest(
+                64, 4,
+                Base64.getEncoder().encodeToString(layoutCells),
+                20.0f, 0.05f,
+                Base64.getEncoder().encodeToString(heightCells),
+                Base64.getEncoder().encodeToString(badLandUse));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> parcelScanService.applyScanResult(task.getId(), req));
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("landUse length");
+    }
+
+    @Test
+    void applyScanResult_RejectsLandUseValueOutOfRange() {
+        Auction auction = savedAuction(savedUser("landuse-range"));
+        BotTask task = botTaskService.enqueueScanParcel(auction);
+        em.flush();
+
+        byte[] layoutCells = new byte[512];
+        byte[] heightCells = new byte[4096];
+        byte[] badLandUse = new byte[4096];
+        badLandUse[100] = (byte) 99; // out of range (>4)
+
+        BotScanResultRequest req = new BotScanResultRequest(
+                64, 4,
+                Base64.getEncoder().encodeToString(layoutCells),
+                20.0f, 0.05f,
+                Base64.getEncoder().encodeToString(heightCells),
+                Base64.getEncoder().encodeToString(badLandUse));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> parcelScanService.applyScanResult(task.getId(), req));
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("out of range");
     }
 
     // --- fixtures ---
