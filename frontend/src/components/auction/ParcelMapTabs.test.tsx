@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,13 +9,10 @@ import { ParcelMapTabs } from "./ParcelMapTabs";
 // Mock next/dynamic to render the imported component synchronously so we can
 // assert switching without spinning up three.js in jsdom.
 vi.mock("next/dynamic", () => ({
-  default: (loader: () => Promise<{ default: React.ComponentType<unknown> }>) => {
+  default: (_loader: () => Promise<{ default: React.ComponentType<unknown> }>) => {
     const Stub = (props: Record<string, unknown>) => (
       <div data-testid="parcel-map-3d-stub" data-props={JSON.stringify(props)} />
     );
-    // Trigger the loader call so the dynamic-import path is exercised, then
-    // return the synchronous stub.
-    void loader;
     return Stub;
   },
 }));
@@ -96,8 +94,9 @@ describe("ParcelMapTabs", () => {
     vi.doMock("next/dynamic", () => ({
       default: () => {
         const Stub = (props: { onWebGLUnavailable?: () => void }) => {
-          // Fire on mount to simulate WebGL absence.
-          (props.onWebGLUnavailable ?? (() => {}))();
+          useEffect(() => {
+            props.onWebGLUnavailable?.();
+          }, [props.onWebGLUnavailable]);
           return <div data-testid="parcel-map-3d-stub" />;
         };
         return Stub;

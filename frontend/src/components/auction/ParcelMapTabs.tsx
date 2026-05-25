@@ -46,10 +46,7 @@ export function ParcelMapTabs({ publicId, className }: Props) {
     setWebglUnavailable(true);
   }, []);
 
-  const handleTabKeyDown = (
-    e: KeyboardEvent<HTMLButtonElement>,
-    targetView: ParcelMapView,
-  ) => {
+  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
     const tablist = e.currentTarget.parentElement;
@@ -62,7 +59,6 @@ export function ParcelMapTabs({ publicId, className }: Props) {
     const delta = e.key === "ArrowRight" ? 1 : -1;
     const next = (idx + delta + buttons.length) % buttons.length;
     buttons[next].focus();
-    void targetView;
   };
 
   return (
@@ -80,7 +76,7 @@ export function ParcelMapTabs({ publicId, className }: Props) {
           aria-controls={PANEL_ID}
           tabIndex={view === "2d" ? 0 : -1}
           onClick={() => setView("2d")}
-          onKeyDown={(e) => handleTabKeyDown(e, "2d")}
+          onKeyDown={handleTabKeyDown}
           className={tabClassName(view === "2d")}
         >
           2D Map
@@ -93,7 +89,7 @@ export function ParcelMapTabs({ publicId, className }: Props) {
           aria-controls={PANEL_ID}
           tabIndex={view === "3d" ? 0 : -1}
           onClick={() => setView("3d")}
-          onKeyDown={(e) => handleTabKeyDown(e, "3d")}
+          onKeyDown={handleTabKeyDown}
           className={tabClassName(view === "3d")}
         >
           3D View
@@ -109,6 +105,7 @@ export function ParcelMapTabs({ publicId, className }: Props) {
         id={PANEL_ID}
         role="tabpanel"
         aria-labelledby={view === "2d" ? TAB_2D_ID : TAB_3D_ID}
+        tabIndex={0}
       >
         {view === "2d" ? (
           <ParcelMap publicId={publicId} />
