@@ -189,13 +189,15 @@ export default function ParcelMap3D({
             />
           )}
         </Canvas>
+        <div className="absolute top-2 right-2">
+          <ParcelMap3DColorModeToggle mode={colorMode} onChange={setColorMode} />
+        </div>
       </div>
-      <div className="flex flex-col gap-1 w-full max-w-[320px]">
+      <div className="w-full max-w-[320px]">
         <ParcelMap3DLegend
           mode={colorMode}
           maxDelta={bounds.rMax - stats.parcelMin}
         />
-        <ParcelMap3DColorModeToggle mode={colorMode} onChange={setColorMode} />
       </div>
     </div>
   );
