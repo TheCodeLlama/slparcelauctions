@@ -141,7 +141,7 @@ export function ParcelMap({ publicId, className }: Props) {
   const liveAnnouncement = announcementFor(hover?.cellInfo ?? cellInfoFor(focusCell, decoded));
 
   return (
-    <figure ref={figureRef} className={cn("relative flex flex-col gap-2", className)}>
+    <figure ref={figureRef} className={cn("relative flex flex-col items-center gap-2", className)}>
       <canvas
         ref={canvasRef}
         width={CANVAS_PX}
