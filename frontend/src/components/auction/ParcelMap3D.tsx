@@ -157,9 +157,9 @@ export default function ParcelMap3D({
       <div
         role="img"
         aria-label="Interactive 3D region and parcel elevation map"
-        className="relative aspect-square w-full max-w-[320px] bg-bg-subtle border border-border-subtle"
+        className="relative aspect-square w-full max-w-[320px]"
       >
-        <Canvas>
+        <Canvas className="border border-border-subtle bg-bg-subtle">
           <PerspectiveCamera
             makeDefault
             fov={camera.fovDeg}
