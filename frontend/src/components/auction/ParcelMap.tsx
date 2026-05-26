@@ -317,24 +317,29 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 function ParcelMapLegend({ maxDelta }: { maxDelta: number }) {
-  // Linear gradient mirroring the 2-stop gradient used in colors.ts. Auto-
-  // scales to the region's actual relief (parcel low -> region high) so the
-  // visible transition is as soft as the data allows -- a cliff face on a
-  // mildly hilly region no longer renders as a hard band.
+  // Layout mirrors ParcelMap3DLegend: inline labels flank the gradient bar
+  // on one row, descriptive paragraph below. Auto-scales to the region's
+  // actual relief (parcel low -> region high) so the visible transition is
+  // as soft as the data allows -- a cliff face on a mildly hilly region no
+  // longer renders as a hard band.
   // RGB literals rather than #hex keep the no-hex-colors verify guard green.
   const stop = (c: { r: number; g: number; b: number }, pct: number) =>
     `rgb(${c.r}, ${c.g}, ${c.b}) ${pct}%`;
   const gradient = `linear-gradient(to right, ${stop(MAP_COLORS.green, 0)}, ${stop(MAP_COLORS.red, 100)})`;
   const rightLabel = `+${Math.round(maxDelta)} m`;
   return (
-    <div className="w-full max-w-[320px] flex flex-col gap-1">
-      <div
-        style={{ background: gradient }}
-        className="h-2 w-full border border-border-subtle"
-        aria-hidden="true"
-      />
-      <div className="flex justify-between text-[10px] text-fg-muted">
+    <div
+      role="group"
+      aria-label="2D map color scale"
+      className="w-full max-w-[320px] flex flex-col gap-1"
+    >
+      <div className="flex items-center gap-2 text-xs text-fg-muted">
         <span>0 m</span>
+        <div
+          style={{ background: gradient }}
+          className="h-2 flex-1 rounded-sm"
+          aria-hidden="true"
+        />
         <span>{rightLabel}</span>
       </div>
       <p className="text-[10px] text-fg-muted">
