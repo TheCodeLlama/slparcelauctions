@@ -1,0 +1,6 @@
+# Featured board configuration. Copy this to a notecard named `config`
+# in the prim, edit the values, then reset the script.
+
+BASE_URL=https://slparcels.com
+BOARD_INDEX=1
+DEBUG_MODE=true
