@@ -5,6 +5,7 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -37,5 +38,8 @@ public record AuctionConfigProperties(
         @Min(1) int searchSuggestResolvableRegionsLimit,
         @NotNull Duration snapshotFetchTimeout,
         @NotNull Duration featuredCacheTtl,
-        @NotNull Duration searchCacheTtl) {
+        @NotNull Duration searchCacheTtl,
+        @Min(1) long featuredPriceLindens,
+        @Min(1) @Max(13) int featuredSlotCount,
+        @Min(1) int featuredBoardCycleSeconds) {
 }
