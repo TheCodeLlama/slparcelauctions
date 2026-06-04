@@ -24,6 +24,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
+import com.slparcelauctions.backend.promotion.PromotionConfigProperties;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
@@ -62,6 +63,7 @@ public class AuctionDtoMapper {
     private final EscrowRepository escrowRepo;
     private final UserRepository userRepo;
     private final RealtyGroupRepository realtyGroupRepo;
+    private final PromotionConfigProperties promotionConfig;
 
     /**
      * Sub-project G section 6.1 -- single-pass batch resolution for the three
@@ -238,7 +240,9 @@ public class AuctionDtoMapper {
                 a.getFinalBidAmount(),
                 resolveWinnerDisplayName(a, ctx),
                 resolveGroupAttribution(a, ctx),
-                resolveListingAgent(a));
+                resolveListingAgent(a),
+                promotionConfig.featuredPriceLindens(),
+                a.isFeatured());
     }
 
     /**

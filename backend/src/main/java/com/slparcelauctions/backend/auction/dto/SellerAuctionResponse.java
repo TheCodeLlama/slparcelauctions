@@ -88,5 +88,19 @@ public record SellerAuctionResponse(
          */
         String winnerDisplayName,
         GroupAttributionDto realtyGroup,
-        ListingAgentDto listingAgent) {
+        ListingAgentDto listingAgent,
+        /**
+         * Current price (in L$) for a featured-board slot. Read from
+         * {@code slpa.promotions.featured-price-lindens} at request time so
+         * the seller's page can render the Feature button without a separate
+         * round-trip. The value changes only on server reconfiguration, so
+         * staleness within a single page session is acceptable.
+         */
+        long featuredPriceLindens,
+        /**
+         * Whether this auction already holds a featured-board slot.
+         * {@code true} causes {@link com.slparcelauctions.backend.auction.dto.SellerAuctionResponse}
+         * consumers to render the "Featured" chip rather than the buy button.
+         */
+        boolean alreadyFeatured) {
 }

@@ -21,6 +21,7 @@ import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.promotion.PromotionConfigProperties;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
@@ -34,11 +35,13 @@ class AuctionDtoMapperTest {
     private final com.slparcelauctions.backend.user.UserRepository userRepo =
             mock(com.slparcelauctions.backend.user.UserRepository.class);
     private final RealtyGroupRepository realtyGroupRepo = mock(RealtyGroupRepository.class);
-    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo, realtyGroupRepo);
+    private final PromotionConfigProperties promotionConfig = mock(PromotionConfigProperties.class);
+    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo, realtyGroupRepo, promotionConfig);
 
     {
         when(photoRepo.findByAuctionIdOrderBySortOrderAsc(any())).thenReturn(List.of());
         when(escrowRepo.findByAuctionId(any())).thenReturn(java.util.Optional.empty());
+        when(promotionConfig.featuredPriceLindens()).thenReturn(500L);
     }
 
     @Test
@@ -246,6 +249,26 @@ class AuctionDtoMapperTest {
         SellerAuctionResponse dto = mapper.toSellerResponse(a);
 
         assertThat(dto.bidIncrement()).isEqualTo(250L);
+    }
+
+    @Test
+    void toSellerResponse_carriesFeaturedPriceAndAlreadyFeatured() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        // Default fixture: isFeatured == false; promotionConfig stub returns 500.
+        SellerAuctionResponse dto = mapper.toSellerResponse(a);
+
+        assertThat(dto.featuredPriceLindens()).isEqualTo(500L);
+        assertThat(dto.alreadyFeatured()).isFalse();
+    }
+
+    @Test
+    void toSellerResponse_alreadyFeaturedTrue_whenAuctionIsFeatured() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setFeatured(true);
+
+        SellerAuctionResponse dto = mapper.toSellerResponse(a);
+
+        assertThat(dto.alreadyFeatured()).isTrue();
     }
 
     private Auction buildAuction(AuctionStatus status) {

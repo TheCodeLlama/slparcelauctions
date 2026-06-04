@@ -158,6 +158,14 @@ export interface SellerAuctionResponse {
   // Realty group attribution — present when the listing was created under a group.
   realtyGroup?: GroupAttribution | null;
   listingAgent?: ListingAgent | null;
+  /**
+   * Current feature slot price from server config (L$). Travels with the
+   * auction payload so the seller's page renders the Feature button without
+   * a separate round-trip.
+   */
+  featuredPriceLindens: number;
+  /** True when this auction already holds a featured-board slot. */
+  alreadyFeatured: boolean;
 }
 
 /** Duration choices permitted by the backend (hours). */
