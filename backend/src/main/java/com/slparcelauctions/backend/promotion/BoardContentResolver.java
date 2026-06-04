@@ -8,8 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.auction.AuctionPhoto;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
+import com.slparcelauctions.backend.auction.PhotoUrl;
 import com.slparcelauctions.backend.auction.featured.FeaturedRepository;
 import com.slparcelauctions.backend.promotion.dto.FeaturedBoardListingDto;
 import com.slparcelauctions.backend.promotion.dto.FeaturedBoardPayloadDto;
@@ -109,13 +109,6 @@ public class BoardContentResolver {
      * question).
      */
     private String primaryPhotoUrl(Auction a) {
-        List<AuctionPhoto> photos = a.getPhotos();
-        if (photos == null || photos.isEmpty()) return null;
-        // Sort by sortOrder to get the cover; the collection order is not guaranteed
-        // when loaded lazily outside an @EntityGraph fetch.
-        return photos.stream()
-                .min(java.util.Comparator.comparingInt(AuctionPhoto::getSortOrder))
-                .map(p -> "/api/v1/photos/" + p.getPublicId())
-                .orElse(null);
+        return PhotoUrl.primaryForAuction(a);
     }
 }
