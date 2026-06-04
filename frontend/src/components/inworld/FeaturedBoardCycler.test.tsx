@@ -20,11 +20,22 @@ describe("FeaturedBoardCycler", () => {
 
   it("advances index every cycleSeconds when length >= 2", () => {
     const items = [listing("a", "Alpha"), listing("b", "Bravo")];
+
+    // Pin the wall-clock to a known epoch so we know which listing is "current"
+    // before the timer fires. Math.floor(epoch / 30) is the index source.
+    const fixedNowMs = 0;          // floor(0 / 30) % 2 = 0 -> Alpha
+    vi.setSystemTime(new Date(fixedNowMs));
+
     render(<FeaturedBoardCycler listings={items} cycleSeconds={30} />);
-    const initial = screen.queryByText("Alpha") || screen.queryByText("Bravo");
-    expect(initial).toBeInTheDocument();
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Bravo")).toBeNull();
+
+    // Advance the fake clock by 30s; advanceTimersByTime also moves Date.now()
+    // forward, so the interval callback reads epoch second 30.
+    // floor(30 / 30) % 2 = 1 -> Bravo.
     act(() => { vi.advanceTimersByTime(30_000); });
-    const flipped = screen.queryByText("Alpha") || screen.queryByText("Bravo");
-    expect(flipped).toBeInTheDocument();
+
+    expect(screen.getByText("Bravo")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha")).toBeNull();
   });
 });
