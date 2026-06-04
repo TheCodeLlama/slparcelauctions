@@ -146,5 +146,23 @@ public enum UserLedgerEntryType {
      * Mirrors {@link com.slparcelauctions.backend.realty.wallet.RealtyGroupLedgerEntryType#DORMANCY_AUTO_RETURN}.
      * See spec docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md §3.
      */
-    DORMANCY_AUTO_RETURN
+    DORMANCY_AUTO_RETURN,
+
+    /**
+     * PROMO-01 (Featured listing) purchase debit. Issued by
+     * {@code PromotionService.purchaseFeatured} when a seller buys
+     * Featured exposure for one of their auctions. {@code refType="AUCTION"},
+     * {@code refId=auctionId}. Idempotency: the matching active row in
+     * {@code featured_board_slots} (unique per auction while
+     * {@code released_at IS NULL}) is the source of truth -- a duplicate
+     * purchase attempt fails before this ledger entry is written.
+     */
+    PROMOTION_DEBIT,
+
+    /**
+     * PROMO-01 refund credited back to wallet. Issued by an admin via the
+     * existing wallet adjustment / coupon path when a force-released slot
+     * warrants a refund. Not auto-issued by slot release on auction end.
+     */
+    PROMOTION_REFUND
 }
