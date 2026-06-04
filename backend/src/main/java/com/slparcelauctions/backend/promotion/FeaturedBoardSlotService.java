@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.exception.ResourceNotFoundException;
+import com.slparcelauctions.backend.promotion.exception.InvalidBoardIndexException;
 import com.slparcelauctions.backend.promotion.exception.PromotionAlreadyActiveException;
 
 import lombok.RequiredArgsConstructor;
@@ -100,6 +102,42 @@ public class FeaturedBoardSlotService {
             counts.merge(s.getBoardIndex(), 1, Integer::sum);
         }
         return counts;
+    }
+
+    /**
+     * Admin force-release: stamps releasedAt on any active slot, bypassing the
+     * normal auction-lifecycle path. Idempotent if the slot is already released.
+     */
+    @Transactional
+    public void forceRelease(UUID slotPublicId) {
+        FeaturedBoardSlot slot = slotRepo.findByPublicId(slotPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotPublicId));
+        if (slot.getReleasedAt() != null) return;
+        slot.setReleasedAt(OffsetDateTime.now());
+        slotRepo.save(slot);
+        log.info("Admin force-release: slotId={} boardIndex={}", slot.getId(), slot.getBoardIndex());
+    }
+
+    /**
+     * Admin move: reassigns an active slot to a different board and/or position.
+     * Rejects the request if {@code boardIndex} is outside the configured range
+     * or if the slot has already been released.
+     */
+    @Transactional
+    public void move(UUID slotPublicId, int boardIndex, int position) {
+        if (boardIndex < 1 || boardIndex > promotionConfig.featuredSlotCount()) {
+            throw new InvalidBoardIndexException(boardIndex, promotionConfig.featuredSlotCount());
+        }
+        FeaturedBoardSlot slot = slotRepo.findByPublicId(slotPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotPublicId));
+        if (slot.getReleasedAt() != null) {
+            throw new IllegalStateException("Slot is already released");
+        }
+        slot.setBoardIndex(boardIndex);
+        slot.setPosition(position);
+        slotRepo.save(slot);
+        log.info("Admin move: slotId={} -> boardIndex={} position={}",
+                slot.getId(), boardIndex, position);
     }
 
     /**
