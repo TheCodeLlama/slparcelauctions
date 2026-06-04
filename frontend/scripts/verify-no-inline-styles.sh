@@ -53,6 +53,19 @@ fi
 #   Tailwind classes. Same shape as the AdminRealtyGroupRowActionMenu
 #   exception above. See spec
 #   docs/superpowers/specs/2026-05-24-parcel-map-frontend-design.md §4.7.
+#
+# - src/components/inworld/FeaturedBoardView.tsx,
+#   src/components/inworld/FeaturedBoardCycler.tsx,
+#   src/components/inworld/PlaceholderBoardView.tsx,
+#   src/app/in-world/board/[boardIndex]/page.tsx,
+#   src/app/in-world/board/placeholder/page.tsx:
+#   These are MOAP (Media On A Prim) pages rendered inside a 512x512 px
+#   SL texture surface with no browser chrome. All layout, typography,
+#   gradients, and color work is pixel-exact to the in-world render target
+#   and cannot be expressed as static Tailwind utility classes -- the values
+#   are fixed but Tailwind's utility set cannot cover arbitrary gradients,
+#   exact pixel radii, or mixed-unit combinations needed here. See spec
+#   docs/superpowers/specs/2026-06-01-hq-featured-boards-design.md §5.3.
 allowlist=(
   "src/components/marketing/HeroFeaturedStack.tsx"
   "src/components/reviews/RatingSummary.tsx"
@@ -61,6 +74,11 @@ allowlist=(
   "src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx"
   "src/components/auction/ParcelMap.tsx"
   "src/components/auction/ParcelMap3DLegend.tsx"
+  "src/components/inworld/FeaturedBoardView.tsx"
+  "src/components/inworld/FeaturedBoardCycler.tsx"
+  "src/components/inworld/PlaceholderBoardView.tsx"
+  "src/app/in-world/board/[boardIndex]/page.tsx"
+  "src/app/in-world/board/placeholder/page.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.

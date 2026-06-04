@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.promotion.FeaturedBoardSlotService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
@@ -62,6 +63,7 @@ class CancellationServiceLadderTest {
     @Mock WalletService walletService;
     @Mock com.slparcelauctions.backend.escrow.EscrowService escrowService;
     @Mock com.slparcelauctions.backend.escrow.EscrowRepository escrowRepo;
+    @Mock FeaturedBoardSlotService slotService;
 
     CancellationService service;
 
@@ -81,7 +83,7 @@ class CancellationServiceLadderTest {
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
                 realtyGroupAuthorizer, listingSuspensionRepo, walletService,
-                escrowService, escrowRepo, fixed);
+                escrowService, escrowRepo, slotService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)

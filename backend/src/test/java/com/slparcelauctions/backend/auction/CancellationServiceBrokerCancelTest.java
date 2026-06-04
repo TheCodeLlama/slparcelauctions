@@ -33,6 +33,7 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.BrokerCancelNotApplicableException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.promotion.FeaturedBoardSlotService;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
@@ -82,6 +83,7 @@ class CancellationServiceBrokerCancelTest {
     @Mock WalletService walletService;
     @Mock com.slparcelauctions.backend.escrow.EscrowService escrowService;
     @Mock com.slparcelauctions.backend.escrow.EscrowRepository escrowRepo;
+    @Mock FeaturedBoardSlotService slotService;
 
     CancellationService service;
 
@@ -109,7 +111,7 @@ class CancellationServiceBrokerCancelTest {
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
                 realtyGroupAuthorizer, listingSuspensionRepo, walletService,
-                escrowService, escrowRepo, fixed);
+                escrowService, escrowRepo, slotService, fixed);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com").username("s")
                 .cancelledWithBids(0)

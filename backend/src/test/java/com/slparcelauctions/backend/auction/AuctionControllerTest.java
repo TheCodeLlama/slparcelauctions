@@ -118,7 +118,9 @@ class AuctionControllerTest {
                 /* endOutcome */ null,
                 /* finalBidAmount */ null,
                 /* winnerDisplayName */ null,
-                null, null);
+                null, null,
+                /* featuredPriceLindens */ 500L,
+                /* alreadyFeatured */ false);
     }
 
     @Test

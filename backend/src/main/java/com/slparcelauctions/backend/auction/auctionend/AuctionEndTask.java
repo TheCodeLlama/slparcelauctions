@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.promotion.FeaturedBoardSlotService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -62,6 +63,7 @@ public class AuctionEndTask {
     private final AuctionBroadcastPublisher publisher;
     private final EscrowService escrowService;
     private final NotificationPublisher notificationPublisher;
+    private final FeaturedBoardSlotService slotService;
     private final Clock clock;
 
     /**
@@ -181,6 +183,18 @@ public class AuctionEndTask {
         // OffsetDateTime.now(clock) that can drift microseconds from `now`
         // above, breaking cross-channel event ordering.
         final AuctionEndedEnvelope envelope = AuctionEndedEnvelope.of(auction, winner, now);
+
+        // Release any PROMO-01 featured-board slot after the close commits.
+        // Idempotent: no-op if the auction had no active slot. Registered before
+        // the broadcast hook so the slot is freed before subscribers observe the
+        // AUCTION_ENDED envelope (registration order = fire order on afterCommit).
+        final long auctionIdFinal = auction.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                slotService.releaseForAuction(auctionIdFinal);
+            }
+        });
 
         // Publish only after the transaction commits. On rollback the
         // synchronization's afterCommit callback is never invoked, which is

@@ -1,0 +1,156 @@
+package com.slparcelauctions.backend.promotion;
+
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.exception.ResourceNotFoundException;
+import com.slparcelauctions.backend.promotion.exception.InvalidBoardIndexException;
+import com.slparcelauctions.backend.promotion.exception.PromotionAlreadyActiveException;
+import com.slparcelauctions.backend.promotion.exception.SlotAlreadyReleasedException;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Transactional facade over {@link FeaturedBoardSlotRepository}. Owns the
+ * row-level invariants: exactly one active slot per auction, append-only
+ * position within a board, releaseTimestamp set on terminal transitions.
+ *
+ * <p>{@code assign} runs with propagation MANDATORY, joining the caller's
+ * transaction (typically {@code PromotionService.purchaseFeatured} which
+ * wraps the wallet debit + slot assignment together so a failure in either
+ * leg rolls both back). {@code releaseForAuction} uses REQUIRES_NEW: it is
+ * called from {@code TransactionSynchronization.afterCommit} hooks on the
+ * auction lifecycle, and the standard REQUIRED propagation participates in
+ * the still-bound, already-committed outer transaction, causing Hibernate
+ * to silently no-op the slot UPDATE. REQUIRES_NEW forces a fresh JDBC
+ * connection + session and makes the release reliable.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class FeaturedBoardSlotService {
+
+    private final FeaturedBoardSlotRepository slotRepo;
+    private final FeaturedBoardAssignmentService assignmentService;
+    private final PromotionConfigProperties promotionConfig;
+
+    /**
+     * Create a slot row for {@code auction}, picking the least-loaded board.
+     * Must run inside a transaction. Fails fast with
+     * {@link PromotionAlreadyActiveException} if the auction already has an
+     * active row (enforced by the unique partial index in V47).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public FeaturedBoardSlot assign(Auction auction) {
+        if (slotRepo.findActiveByAuctionId(auction.getId()).isPresent()) {
+            throw new PromotionAlreadyActiveException(auction.getPublicId());
+        }
+        Map<Integer, Integer> counts = countsByBoard();
+        var pick = assignmentService.assign(promotionConfig.featuredSlotCount(), counts);
+
+        FeaturedBoardSlot slot = FeaturedBoardSlot.builder()
+                .publicId(UUID.randomUUID())
+                .boardIndex(pick.boardIndex())
+                .auction(auction)
+                .position(pick.position())
+                .assignedAt(OffsetDateTime.now())
+                .build();
+        slot = slotRepo.save(slot);
+        log.info("PROMO-01 slot assigned: auctionId={} boardIndex={} position={} slotId={}",
+                auction.getId(), pick.boardIndex(), pick.position(), slot.getId());
+        return slot;
+    }
+
+    /**
+     * Release whatever slot (if any) currently holds {@code auctionId}.
+     * Idempotent: no-op if no active row exists. Called by the auction
+     * lifecycle (ENDED/CANCELLED/WITHDRAWN) via afterCommit hooks; called
+     * directly by the admin force-release endpoint.
+     *
+     * <p>Uses {@code REQUIRES_NEW} so that callers invoking from an
+     * {@code afterCommit} callback always get a completely fresh JDBC connection
+     * and Hibernate session. With {@code REQUIRED}, the original transaction's
+     * connection may still be bound to the thread during afterCommit, causing
+     * the dirty-check flush to be a no-op against the already-committed session.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void releaseForAuction(long auctionId) {
+        slotRepo.findActiveByAuctionId(auctionId).ifPresent(slot -> {
+            slot.setReleasedAt(OffsetDateTime.now());
+            slotRepo.save(slot);
+            log.info("PROMO-01 slot released: auctionId={} slotId={} boardIndex={}",
+                    auctionId, slot.getId(), slot.getBoardIndex());
+        });
+    }
+
+    /**
+     * Snapshot per-board active row counts. Cheap on small tables; if the
+     * pool grows large enough that this becomes a hot path, swap for a
+     * GROUP BY in the repository.
+     */
+    private Map<Integer, Integer> countsByBoard() {
+        Map<Integer, Integer> counts = new HashMap<>();
+        for (FeaturedBoardSlot s : slotRepo.allActive()) {
+            counts.merge(s.getBoardIndex(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    /**
+     * Admin force-release: stamps releasedAt on any active slot, bypassing the
+     * normal auction-lifecycle path. Idempotent if the slot is already released.
+     */
+    @Transactional
+    public void forceRelease(UUID slotPublicId) {
+        FeaturedBoardSlot slot = slotRepo.findByPublicId(slotPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotPublicId));
+        if (slot.getReleasedAt() != null) return;
+        slot.setReleasedAt(OffsetDateTime.now());
+        slotRepo.save(slot);
+        log.info("Admin force-release: slotId={} boardIndex={}", slot.getId(), slot.getBoardIndex());
+    }
+
+    /**
+     * Admin move: reassigns an active slot to a different board and/or position.
+     * Rejects the request if {@code boardIndex} is outside the configured range
+     * or if the slot has already been released.
+     */
+    @Transactional
+    public void move(UUID slotPublicId, int boardIndex, int position) {
+        if (boardIndex < 1 || boardIndex > promotionConfig.featuredSlotCount()) {
+            throw new InvalidBoardIndexException(boardIndex, promotionConfig.featuredSlotCount());
+        }
+        FeaturedBoardSlot slot = slotRepo.findByPublicId(slotPublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotPublicId));
+        if (slot.getReleasedAt() != null) {
+            throw new SlotAlreadyReleasedException(slotPublicId);
+        }
+        slot.setBoardIndex(boardIndex);
+        slot.setPosition(position);
+        slotRepo.save(slot);
+        log.info("Admin move: slotId={} -> boardIndex={} position={}",
+                slot.getId(), boardIndex, position);
+    }
+
+    /**
+     * Used by the admin curator and the read-side resolver.
+     */
+    @Transactional(readOnly = true)
+    public List<FeaturedBoardSlot> activeQueueFor(int boardIndex) {
+        return slotRepo.liveQueue(boardIndex);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FeaturedBoardSlot> allActive() {
+        return slotRepo.allActive();
+    }
+}

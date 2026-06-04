@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.promotion.PromotionConfigProperties;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -28,12 +29,13 @@ class AuctionDtoMapperBatchContextTest {
     @Mock EscrowRepository escrowRepo;
     @Mock UserRepository userRepo;
     @Mock RealtyGroupRepository realtyGroupRepo;
+    @Mock PromotionConfigProperties promotionConfig;
 
     private AuctionDtoMapper mapper;
 
     @BeforeEach
     void setUp() {
-        mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo, realtyGroupRepo);
+        mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo, realtyGroupRepo, promotionConfig);
     }
 
     @Test
