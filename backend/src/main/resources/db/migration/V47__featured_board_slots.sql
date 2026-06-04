@@ -8,7 +8,7 @@ CREATE TABLE featured_board_slots (
     id           BIGSERIAL PRIMARY KEY,
     public_id    UUID NOT NULL UNIQUE,
     board_index  INTEGER NOT NULL,
-    auction_id   BIGINT NOT NULL REFERENCES auctions(id),
+    auction_id   BIGINT NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
     position     INTEGER NOT NULL,
     assigned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     released_at  TIMESTAMPTZ,
