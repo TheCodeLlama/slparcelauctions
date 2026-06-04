@@ -147,13 +147,14 @@ slpa:
     # the search controller emits - change both together.
     featured-cache-ttl: PT60S
     search-cache-ttl: PT30S
+  promotions:
     # PROMO-01 (Featured listing) pricing.
     featured-price-lindens: 500
     # Number of HQ boards currently activated (1..13). Boards beyond this
     # index render the placeholder route.
     featured-slot-count: 5
     # Cross-fade interval when a board's queue holds 2+ listings.
-    featured-board-cycle-seconds: 30
+    featured-board-cycle: PT30S
   ratelimit:
     # bucket4j Redis-backed rate limiters fronting /auctions/search and the
     # suggest/typeahead endpoint. capacity is the per-IP burst; refill is the

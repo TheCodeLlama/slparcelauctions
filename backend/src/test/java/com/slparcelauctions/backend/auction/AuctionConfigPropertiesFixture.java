@@ -28,9 +28,6 @@ public final class AuctionConfigPropertiesFixture {
                 10,                        // searchSuggestResolvableRegionsLimit
                 Duration.ofSeconds(5),     // snapshotFetchTimeout
                 Duration.ofSeconds(60),    // featuredCacheTtl
-                Duration.ofSeconds(30),    // searchCacheTtl
-                500L,                      // featuredPriceLindens
-                5,                         // featuredSlotCount
-                30);                       // featuredBoardCycleSeconds
+                Duration.ofSeconds(30));   // searchCacheTtl
     }
 }
