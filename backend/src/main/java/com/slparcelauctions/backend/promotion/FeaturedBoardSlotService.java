@@ -69,8 +69,14 @@ public class FeaturedBoardSlotService {
      * Idempotent: no-op if no active row exists. Called by the auction
      * lifecycle (ENDED/CANCELLED/WITHDRAWN) via afterCommit hooks; called
      * directly by the admin force-release endpoint.
+     *
+     * <p>Uses {@code REQUIRES_NEW} so that callers invoking from an
+     * {@code afterCommit} callback always get a completely fresh JDBC connection
+     * and Hibernate session. With {@code REQUIRED}, the original transaction's
+     * connection may still be bound to the thread during afterCommit, causing
+     * the dirty-check flush to be a no-op against the already-committed session.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void releaseForAuction(long auctionId) {
         slotRepo.findActiveByAuctionId(auctionId).ifPresent(slot -> {
             slot.setReleasedAt(OffsetDateTime.now());

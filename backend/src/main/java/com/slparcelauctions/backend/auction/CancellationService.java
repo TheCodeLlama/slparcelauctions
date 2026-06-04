@@ -24,6 +24,7 @@ import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.promotion.FeaturedBoardSlotService;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
@@ -91,6 +92,7 @@ public class CancellationService {
     private final WalletService walletService;
     private final EscrowService escrowService;
     private final EscrowRepository escrowRepo;
+    private final FeaturedBoardSlotService slotService;
     private final Clock clock;
 
     @Transactional
@@ -224,7 +226,15 @@ public class CancellationService {
         // on a late DB failure. Mirrors the pattern used by ReviewService.
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
@@ -234,6 +244,7 @@ public class CancellationService {
                     });
         } else {
             // Slice tests / non-tx callers -- fire immediately.
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -299,7 +310,15 @@ public class CancellationService {
 
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
@@ -308,6 +327,7 @@ public class CancellationService {
                         }
                     });
         } else {
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -376,7 +396,14 @@ public class CancellationService {
 
         final boolean hadBids = true;
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(saved, hadBids, now);
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override public void afterCommit() {
@@ -384,6 +411,7 @@ public class CancellationService {
                         }
                     });
         } else {
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -507,7 +535,15 @@ public class CancellationService {
 
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
@@ -516,6 +552,7 @@ public class CancellationService {
                         }
                     });
         } else {
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -583,7 +620,15 @@ public class CancellationService {
 
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
@@ -592,6 +637,7 @@ public class CancellationService {
                         }
                     });
         } else {
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -681,7 +727,15 @@ public class CancellationService {
 
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
+        final long cancelledId = saved.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            slotService.releaseForAuction(cancelledId);
+                        }
+                    });
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
@@ -690,6 +744,7 @@ public class CancellationService {
                         }
                     });
         } else {
+            slotService.releaseForAuction(cancelledId);
             broadcastPublisher.publishCancelled(envelope);
         }
     }
