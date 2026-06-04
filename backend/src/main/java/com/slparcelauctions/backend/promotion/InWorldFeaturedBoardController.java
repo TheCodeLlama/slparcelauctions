@@ -2,9 +2,12 @@ package com.slparcelauctions.backend.promotion;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -71,9 +74,11 @@ public class InWorldFeaturedBoardController {
     }
 
     @GetMapping("/board/placeholder")
-    public FeaturedBoardPayloadDto getPlaceholder() {
-        return new FeaturedBoardPayloadDto(0, 0, List.of(),
-                FeaturedBoardPayloadDto.Source.PLACEHOLDER);
+    public ResponseEntity<FeaturedBoardPayloadDto> getPlaceholder() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                .body(new FeaturedBoardPayloadDto(0, 0, List.of(),
+                        FeaturedBoardPayloadDto.Source.PLACEHOLDER));
     }
 
     private void validateIndex(int boardIndex) {

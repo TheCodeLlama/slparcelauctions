@@ -347,6 +347,12 @@ Test scripts chain `boardIndex`, `slotId`, and active `auctionId` into the exist
 
 - `docs/monetization/monetization-options.md` — `PROMO-01` definition.
 - `frontend/src/components/marketing/HeroFeaturedStack.tsx` — existing Featured carousel implementation.
+
+## 10. Implementation notes / deviations
+
+- Config key renamed from `featured-board-cycle-seconds` (int) to `featured-board-cycle` (Duration) for consistency with other Duration tunables in the application configuration.
+- LSL `Teleport` action uses `llLoadURL` with the SLURL rather than `llMapDestination`, because parsing SLURL components in LSL is fragile and `llLoadURL` produces the same UX (a browser dialog that drops the user in the right region). Revisit if this becomes a UX concern.
+- The section 4.3 `WITHDRAWN` trigger is unimplemented because no production code sets `AuctionStatus.WITHDRAWN` today. The cancel paths cover the same lifecycle exit.
 - `backend/src/main/java/com/slparcelauctions/backend/auction/featured/` — existing featured infrastructure.
 - `lsl-scripts/*/README.md` — per-script README convention.
 - CLAUDE.md — Frontend SSR caveats (`force-dynamic`, `apiUrl()` wrap, defensive coercion).

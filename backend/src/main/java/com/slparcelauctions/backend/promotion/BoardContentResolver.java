@@ -72,9 +72,11 @@ public class BoardContentResolver {
         FeaturedBoardPayloadDto payload = resolve(boardIndex);
         if (payload.listings().isEmpty()) return null;
         if (payload.listings().size() == 1) return payload.listings().get(0);
+        int cycleSeconds = payload.cycleSeconds();
+        if (cycleSeconds <= 0) return payload.listings().get(0);
         long epochSeconds = System.currentTimeMillis() / 1000L;
         int idx = (int) Math.floorMod(
-                epochSeconds / payload.cycleSeconds(),
+                epochSeconds / cycleSeconds,
                 payload.listings().size());
         return payload.listings().get(idx);
     }
@@ -85,13 +87,14 @@ public class BoardContentResolver {
         Integer sqm = snap != null ? snap.getAreaSqm() : null;
         String slurl = snap != null ? snap.getSlurl() : null;
         String photoUrl = primaryPhotoUrl(a);
+        long currentBid = a.getCurrentBid() != null ? a.getCurrentBid() : 0L;
         return new FeaturedBoardListingDto(
                 a.getPublicId(),
                 a.getTitle(),
                 region,
                 sqm,
                 photoUrl,
-                a.getCurrentBid(),
+                currentBid,
                 a.getEndsAt(),
                 "/auction/" + a.getPublicId(),
                 slurl
