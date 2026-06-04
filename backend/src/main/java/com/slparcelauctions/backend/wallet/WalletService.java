@@ -570,8 +570,8 @@ public class WalletService {
      * @param user          the seller being charged
      * @param amount        fee in L$ (must be positive)
      * @param auctionId     the auction being promoted (ref for the ledger row)
-     * @param promotionCode the promotion code string (e.g. "PROMO-01") written
-     *                      into the ledger description as "PROMO-01:PROMO-01"
+     * @param promotionCode the promotion catalog code (e.g. "PROMO-01") written
+     *                      verbatim into the ledger description for audit
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void debitPromotionFee(User user, long amount, Long auctionId, String promotionCode) {
@@ -593,7 +593,7 @@ public class WalletService {
                 .reservedAfter(user.getReservedLindens())
                 .refType("AUCTION")
                 .refId(auctionId)
-                .description("PROMO-01:" + promotionCode)
+                .description(promotionCode)
                 .build());
         walletBroadcastPublisher.publish(user,
                 UserLedgerEntryType.PROMOTION_DEBIT.name(), entry.getPublicId());
