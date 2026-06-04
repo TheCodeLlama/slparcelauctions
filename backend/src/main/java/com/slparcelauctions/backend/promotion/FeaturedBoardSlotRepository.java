@@ -26,10 +26,14 @@ public interface FeaturedBoardSlotRepository extends JpaRepository<FeaturedBoard
     /**
      * Active rows across all boards -- used by {@code FeaturedBoardAssignmentService}
      * to compute per-board counts and by the admin curator. Ordering is
-     * (boardIndex, position) so callers can group cheaply.
+     * (boardIndex, position) so callers can group cheaply. The JOIN FETCH eagerly
+     * loads the auction association so callers that access slot.getAuction() fields
+     * (e.g. the admin DTO mapper) do not trigger LazyInitializationException when
+     * open-in-view is disabled.
      */
     @Query("""
         SELECT s FROM FeaturedBoardSlot s
+        JOIN FETCH s.auction
         WHERE s.releasedAt IS NULL
         ORDER BY s.boardIndex ASC, s.position ASC, s.id ASC
         """)

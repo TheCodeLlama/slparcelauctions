@@ -1,10 +1,6 @@
 package com.slparcelauctions.backend.promotion;
 
-import java.net.URI;
-
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,11 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.promotion.dto.PurchaseFeaturedRequest;
 import com.slparcelauctions.backend.promotion.dto.PurchaseFeaturedResponse;
-import com.slparcelauctions.backend.promotion.exception.NotAuctionSellerException;
-import com.slparcelauctions.backend.promotion.exception.PromotionAlreadyActiveException;
-import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -55,44 +47,4 @@ public class PromotionController {
         );
     }
 
-    @ExceptionHandler(PromotionAlreadyActiveException.class)
-    public ProblemDetail handleAlreadyActive(PromotionAlreadyActiveException e,
-                                             HttpServletRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
-        pd.setType(URI.create("https://slpa.example/problems/promotion-already-active"));
-        pd.setTitle("Promotion already active");
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "PROMOTION_ALREADY_ACTIVE");
-        return pd;
-    }
-
-    @ExceptionHandler(NotAuctionSellerException.class)
-    public ProblemDetail handleNotSeller(NotAuctionSellerException e,
-                                         HttpServletRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
-        pd.setType(URI.create("https://slpa.example/problems/not-auction-seller"));
-        pd.setTitle("Not auction seller");
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "NOT_AUCTION_SELLER");
-        return pd;
-    }
-
-    /**
-     * {@link WalletExceptionHandler} is scoped to {@code wallet.me} only, so
-     * {@link InsufficientAvailableBalanceException} thrown from the promotion path
-     * would fall through to the global 500 handler without this local mapping.
-     */
-    @ExceptionHandler(InsufficientAvailableBalanceException.class)
-    public ProblemDetail handleInsufficientBalance(InsufficientAvailableBalanceException e,
-                                                    HttpServletRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
-        pd.setType(URI.create("https://slpa.example/problems/insufficient-available-balance"));
-        pd.setTitle("Insufficient available balance");
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "INSUFFICIENT_AVAILABLE_BALANCE");
-        pd.setProperty("available", e.getAvailable());
-        pd.setProperty("requested", e.getRequested());
-        return pd;
-    }
 }

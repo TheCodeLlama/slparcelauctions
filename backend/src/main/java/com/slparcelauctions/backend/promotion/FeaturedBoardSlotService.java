@@ -14,6 +14,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.common.exception.ResourceNotFoundException;
 import com.slparcelauctions.backend.promotion.exception.InvalidBoardIndexException;
 import com.slparcelauctions.backend.promotion.exception.PromotionAlreadyActiveException;
+import com.slparcelauctions.backend.promotion.exception.SlotAlreadyReleasedException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -131,7 +132,7 @@ public class FeaturedBoardSlotService {
         FeaturedBoardSlot slot = slotRepo.findByPublicId(slotPublicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotPublicId));
         if (slot.getReleasedAt() != null) {
-            throw new IllegalStateException("Slot is already released");
+            throw new SlotAlreadyReleasedException(slotPublicId);
         }
         slot.setBoardIndex(boardIndex);
         slot.setPosition(position);

@@ -21,7 +21,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.common.image.InvalidVariantException;
-import com.slparcelauctions.backend.promotion.exception.InvalidBoardIndexException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -371,17 +370,6 @@ public class GlobalExceptionHandler {
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "INVALID_VARIANT");
         pd.setProperty("value", e.getValue());
-        return pd;
-    }
-
-    @ExceptionHandler(InvalidBoardIndexException.class)
-    public ProblemDetail handleInvalidBoardIndex(InvalidBoardIndexException e,
-                                                 HttpServletRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
-        pd.setType(URI.create("https://slpa.example/problems/invalid-board-index"));
-        pd.setTitle("Invalid board index");
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "INVALID_BOARD_INDEX");
         return pd;
     }
 
