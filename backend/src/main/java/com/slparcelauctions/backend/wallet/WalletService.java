@@ -561,6 +561,46 @@ public class WalletService {
                 user.getId(), amount, auctionId, newBalance);
     }
 
+    /**
+     * Debit a PROMO-XX promotion fee from the user's wallet.
+     * Called by {@code PromotionService.purchaseFeatured} (T11) to charge
+     * the PROMO-01 Featured listing fee. Caller must already hold a
+     * transaction (MANDATORY) and a pessimistic write lock on the user row.
+     *
+     * @param user          the seller being charged
+     * @param amount        fee in L$ (must be positive)
+     * @param auctionId     the auction being promoted (ref for the ledger row)
+     * @param promotionCode the promotion code string (e.g. "PROMO-01") written
+     *                      into the ledger description as "PROMO-01:PROMO-01"
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void debitPromotionFee(User user, long amount, Long auctionId, String promotionCode) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        rejectIfFrozen(user);
+        if (user.availableLindens() < amount) {
+            throw new InsufficientAvailableBalanceException(user.availableLindens(), amount);
+        }
+        long newBalance = user.getBalanceLindens() - amount;
+        user.setBalanceLindens(newBalance);
+        userRepository.save(user);
+        UserLedgerEntry entry = ledgerRepository.save(UserLedgerEntry.builder()
+                .userId(user.getId())
+                .entryType(UserLedgerEntryType.PROMOTION_DEBIT)
+                .amount(amount)
+                .balanceAfter(newBalance)
+                .reservedAfter(user.getReservedLindens())
+                .refType("AUCTION")
+                .refId(auctionId)
+                .description("PROMO-01:" + promotionCode)
+                .build());
+        walletBroadcastPublisher.publish(user,
+                UserLedgerEntryType.PROMOTION_DEBIT.name(), entry.getPublicId());
+        log.info("PROMO-01 debit: userId={}, amount={}, auctionId={}, balanceAfter={}, code={}",
+                user.getId(), amount, auctionId, newBalance, promotionCode);
+    }
+
     /* ========================================================== */
     /* RESERVATION RELEASE (cancellation, ban paths)               */
     /* ========================================================== */
