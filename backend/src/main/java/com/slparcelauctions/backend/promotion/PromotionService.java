@@ -9,6 +9,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.promotion.exception.NotAuctionSellerException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -46,11 +47,10 @@ public class PromotionService {
             throw new NotAuctionSellerException(auctionPublicId);
         }
         if (auction.getStatus() != AuctionStatus.ACTIVE) {
-            throw new IllegalStateException(
-                    "PROMO-01 can only be bought on ACTIVE auctions; got " + auction.getStatus());
+            throw new InvalidAuctionStateException(auction.getId(), auction.getStatus(), PROMO_01_CODE);
         }
 
-        User caller = userRepo.findById(callerUserId)
+        User caller = userRepo.findByIdForUpdate(callerUserId)
                 .orElseThrow(() -> new IllegalStateException(
                         "Authenticated user not found: " + callerUserId));
 
