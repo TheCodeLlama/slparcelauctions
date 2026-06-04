@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.promotion;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,7 +63,10 @@ public class BoardContentResolver {
      * Compute the single listing currently on-screen at now() for the given
      * board's queue. The same formula runs in the browser cycle timer and
      * in the LSL touch handler so both sides agree.
+     *
+     * <p>Returns {@code null} when the resolved board has no listings (placeholder source).
      */
+    @Nullable
     @Transactional(readOnly = true)
     public FeaturedBoardListingDto currentTouchTarget(int boardIndex) {
         FeaturedBoardPayloadDto payload = resolve(boardIndex);

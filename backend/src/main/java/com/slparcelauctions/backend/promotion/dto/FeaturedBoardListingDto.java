@@ -9,7 +9,7 @@ public record FeaturedBoardListingDto(
         String region,
         Integer sqm,
         String photoUrl,
-        long currentBid,
+        Long currentBid,
         OffsetDateTime endsAt,
         String listingUrl,
         String slurl
