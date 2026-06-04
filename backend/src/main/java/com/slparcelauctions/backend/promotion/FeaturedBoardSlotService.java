@@ -21,12 +21,15 @@ import lombok.extern.slf4j.Slf4j;
  * row-level invariants: exactly one active slot per auction, append-only
  * position within a board, releaseTimestamp set on terminal transitions.
  *
- * <p>All public methods participate in the caller's transaction by default
- * (the typical caller is {@code PromotionService.purchaseFeatured} which
- * runs inside the wallet-debit transaction). {@code releaseForAuction} is
- * the one path that callers commonly invoke from {@code afterCommit} hooks
- * -- those callers MUST open a fresh transaction (the default propagation
- * REQUIRED handles that).
+ * <p>{@code assign} runs with propagation MANDATORY, joining the caller's
+ * transaction (typically {@code PromotionService.purchaseFeatured} which
+ * wraps the wallet debit + slot assignment together so a failure in either
+ * leg rolls both back). {@code releaseForAuction} uses REQUIRES_NEW: it is
+ * called from {@code TransactionSynchronization.afterCommit} hooks on the
+ * auction lifecycle, and the standard REQUIRED propagation participates in
+ * the still-bound, already-committed outer transaction, causing Hibernate
+ * to silently no-op the slot UPDATE. REQUIRES_NEW forces a fresh JDBC
+ * connection + session and makes the release reliable.
  */
 @Service
 @RequiredArgsConstructor
