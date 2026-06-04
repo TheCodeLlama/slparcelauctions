@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.promotion;
 import java.time.Duration;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,27 +14,53 @@ import com.slparcelauctions.backend.promotion.dto.FeaturedBoardListingDto;
 import com.slparcelauctions.backend.promotion.dto.FeaturedBoardPayloadDto;
 import com.slparcelauctions.backend.promotion.exception.InvalidBoardIndexException;
 
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/in-world")
-@RequiredArgsConstructor
+@Slf4j
 public class InWorldFeaturedBoardController {
 
     private static final Duration CACHE_TTL = Duration.ofSeconds(15);
+    private static final String CACHE_KEY_PREFIX = "slpa:featured-board:";
 
     private final BoardContentResolver resolver;
     private final PromotionConfigProperties promotionConfig;
-    private final RedisTemplate<String, Object> epic07RedisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    /**
+     * Lombok cannot propagate @Qualifier through @RequiredArgsConstructor, so the
+     * constructor is hand-written to bind the correct Redis bean explicitly.
+     */
+    public InWorldFeaturedBoardController(
+            BoardContentResolver resolver,
+            PromotionConfigProperties promotionConfig,
+            @Qualifier("epic07RedisTemplate") RedisTemplate<String, Object> redisTemplate) {
+        this.resolver = resolver;
+        this.promotionConfig = promotionConfig;
+        this.redisTemplate = redisTemplate;
+    }
 
     @GetMapping("/featured-board/{boardIndex}")
     public FeaturedBoardPayloadDto getBoard(@PathVariable int boardIndex) {
         validateIndex(boardIndex);
-        String key = "featured-board:" + boardIndex;
-        Object cached = epic07RedisTemplate.opsForValue().get(key);
-        if (cached instanceof FeaturedBoardPayloadDto p) return p;
+        String key = CACHE_KEY_PREFIX + boardIndex;
+
+        FeaturedBoardPayloadDto cached = null;
+        try {
+            Object raw = redisTemplate.opsForValue().get(key);
+            if (raw instanceof FeaturedBoardPayloadDto p) cached = p;
+        } catch (RuntimeException e) {
+            log.warn("Redis read failed for {} (degrading to recompute): {}", key, e.getMessage());
+        }
+        if (cached != null) return cached;
+
         FeaturedBoardPayloadDto payload = resolver.resolve(boardIndex);
-        epic07RedisTemplate.opsForValue().set(key, payload, CACHE_TTL);
+        try {
+            redisTemplate.opsForValue().set(key, payload, CACHE_TTL);
+        } catch (RuntimeException e) {
+            log.warn("Redis write failed for {} (continuing without cache): {}", key, e.getMessage());
+        }
         return payload;
     }
 
