@@ -100,6 +100,8 @@ export function fakeSellerAuction(
     commissionAmt: null,
     createdAt: "2026-04-17T00:00:00Z",
     updatedAt: "2026-04-17T00:00:00Z",
+    featuredPriceLindens: 500,
+    alreadyFeatured: false,
     ...overrides,
   };
 }

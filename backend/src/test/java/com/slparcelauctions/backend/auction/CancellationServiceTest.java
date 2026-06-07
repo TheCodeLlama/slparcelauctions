@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspension;
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionCause;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.promotion.FeaturedBoardSlotService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
@@ -57,6 +58,7 @@ class CancellationServiceTest {
     @Mock WalletService walletService;
     @Mock com.slparcelauctions.backend.escrow.EscrowService escrowService;
     @Mock com.slparcelauctions.backend.escrow.EscrowRepository escrowRepo;
+    @Mock FeaturedBoardSlotService slotService;
 
     CancellationService service;
 
@@ -74,7 +76,7 @@ class CancellationServiceTest {
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
                 realtyGroupAuthorizer, listingSuspensionRepo, walletService,
-                escrowService, escrowRepo, fixed);
+                escrowService, escrowRepo, slotService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)

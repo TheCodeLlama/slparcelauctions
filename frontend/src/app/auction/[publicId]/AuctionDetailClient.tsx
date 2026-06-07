@@ -36,6 +36,7 @@ import { StickyBidBar } from "@/components/auction/StickyBidBar";
 import { BidSheet } from "@/components/auction/BidSheet";
 import { ReportListingButton } from "@/components/auction/ReportListingButton";
 import { BrokerCancelButton } from "@/components/listing/BrokerCancelButton";
+import { FeatureListingButton } from "@/components/listing/FeatureListingButton";
 
 /**
  * Client shell for the auction detail page.
@@ -425,6 +426,22 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             group={auction.realtyGroup}
           />
           <BrokerCancelButton auction={auction} />
+          {isSellerViewer && auction.status === "ACTIVE" && (
+            <FeatureListingButton
+              auctionPublicId={publicId}
+              priceLindens={
+                (auction as SellerAuctionResponse).featuredPriceLindens
+              }
+              alreadyFeatured={
+                (auction as SellerAuctionResponse).alreadyFeatured
+              }
+              onPurchased={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: auctionKey(publicId),
+                });
+              }}
+            />
+          )}
           <VisitInSecondLifeBlock
             regionName={auction.parcel.regionName}
             positionX={auction.parcel.positionX}

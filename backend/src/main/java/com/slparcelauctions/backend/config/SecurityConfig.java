@@ -321,6 +321,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/bot/**").access((authentication, ctx) ->
                                 new AuthorizationDecision(
                                         botSharedSecretAuthorizer.isAuthorized(ctx.getRequest())))
+                        // In-world featured-board endpoints (HQ-featured-boards spec).
+                        // LSL scripts poll these to refresh board displays; they cannot
+                        // present a JWT. Reads are anonymous-safe: the response is
+                        // public listing data. FOOTGUNS §B.5: MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/in-world/featured-board/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/in-world/board/placeholder").permitAll()
                         // Dev simulate helper - permit at HTTP layer always. The bean is only
                         // registered under @Profile("dev"); in prod the handler doesn't exist so
                         // the request 404s (falling through Spring MVC rather than Spring Security).

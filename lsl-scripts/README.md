@@ -48,3 +48,7 @@ A script's README must cover:
 - [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLParcels backend for pending
   SL IM notifications and delivers them via `llInstantMessage`. SLParcels-team-deployed
   (one instance per environment); not user-deployed.
+- [`featured-board/`](featured-board/) — HQ Featured-board prim. Renders the
+  per-board MOAP page and on touch fires a dialog with [Teleport / View listing /
+  Cancel] by querying the anonymous `/touch` endpoint. One script per board prim;
+  outbound HTTP only, no shared secret. SLParcels-team-deployed.
