@@ -424,6 +424,13 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 
 ## Production deployment
 
+> **Project paused (2026-11-04).** The AWS stack below was torn down with
+> `terraform destroy`; only the Route 53 zones, a final RDS snapshot, the
+> Terraform state bucket, the hand-set SSM secrets and the (auto-build-off)
+> Amplify app remain. Nothing in this section is live. See
+> [`resuming-project.md`](resuming-project.md) for what was kept, what was
+> lost, and the ordered steps to bring production back.
+
 Production runs on AWS in `us-east-1`. Architecture and decisions are documented in [`docs/superpowers/specs/2026-04-29-aws-deployment-design.md`](docs/superpowers/specs/2026-04-29-aws-deployment-design.md). All infrastructure is Terraform-managed under `infra/` (the lone exception is the Amplify app, deliberately console-managed — `infra/main.tf` documents the reason and reproduction steps).
 
 ### Live endpoints
@@ -456,15 +463,25 @@ Running cost at launch-lite defaults: ~$78/mo. Upgrade levers in `infra/variable
 
 ### Teardown
 
+Done on 2026-11-04 — see [`resuming-project.md`](resuming-project.md) §1 for
+the exact procedure that was run and what it left behind. For reference, the
+destroy needs these out-of-band steps first because the Terraform config
+deliberately protects data:
+
 ```bash
-# 1. Empty data buckets so destroy can drop them
-aws s3 rm s3://<storage-bucket-name> --recursive --profile slpa-prod
-# 2. Empty ECR repos
+# 1. Disable deletion protection (RDS + ALB are protected in config)
+aws rds modify-db-instance --db-instance-identifier slpa-prod-postgres --no-deletion-protection --apply-immediately --profile slpa-prod
+aws elbv2 modify-load-balancer-attributes --load-balancer-arn <alb-arn> --attributes Key=deletion_protection.enabled,Value=false --profile slpa-prod
+# 2. Empty the versioned storage bucket (plain `s3 rm` leaves versions + delete markers behind)
+aws s3api list-object-versions --bucket slpa-prod-storage --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output json > v.json && aws s3api delete-objects --bucket slpa-prod-storage --delete file://v.json --profile slpa-prod
+aws s3api list-object-versions --bucket slpa-prod-storage --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output json > m.json && aws s3api delete-objects --bucket slpa-prod-storage --delete file://m.json --profile slpa-prod
+# 3. Empty ECR repos
 aws ecr batch-delete-image --repository-name slpa/backend --image-ids "$(aws ecr list-images --repository-name slpa/backend --query 'imageIds[*]' --output json)" --profile slpa-prod
 aws ecr batch-delete-image --repository-name slpa/bot --image-ids "$(aws ecr list-images --repository-name slpa/bot --query 'imageIds[*]' --output json)" --profile slpa-prod
-# 3. Destroy everything Terraform owns
-cd infra && terraform destroy
-# 4. Delete the Amplify app from the console (not Terraform-managed)
+# 4. Destroy everything except the hosted zones (RDS takes a final snapshot automatically)
+cd infra && terraform destroy -target=module.observability -target=module.cicd -target=module.compute -target=module.data -target=module.networking
+# 5. Turn off Amplify auto-build (or delete the app) — not Terraform-managed
+aws amplify update-branch --app-id dil6fhehya5jf --branch-name main --no-enable-auto-build --profile slpa-prod
 ```
 
 ## Conventions
